@@ -79,7 +79,6 @@ class EventBusTest : KoinComponent {
 
     @Test
     fun `The producer is able to send events to a topic`() {
-
         val jsonMsg = "{\"foo\":\"bar\"}"
 
         val n = 10

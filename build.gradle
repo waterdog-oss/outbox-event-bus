@@ -6,7 +6,6 @@ buildscript {
             "kotlin" : "1.2.71",
             "junit"  : "5.3.1",
             "koin"   : "1.0.1",
-            "exposed": "0.11.2",
             "jackson": "2.9.7"
     ]
 
@@ -19,29 +18,30 @@ buildscript {
                             "core": "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.30.2"
                     ]
             ],
-            "koin"        : [
-                    "core"   : "org.koin:koin-core:${versions.koin}",
-                    "coreExt": "org.koin:koin-core-ext:${versions.koin}",
-                    "test"   : "org.koin:koin-test:${versions.koin}"
-            ],
             "jackson"     : [
                     "core"    : "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
                     "databind": "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
                     "kotlin"  : "com.fasterxml.jackson.module:jackson-module-kotlin:${versions.jackson}",
                     "jsr310"  : "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.2"
             ],
+            "koin"        : [
+                    "core"   : "org.koin:koin-core:${versions.koin}",
+                    "coreExt": "org.koin:koin-core-ext:${versions.koin}",
+                    "ktor"   : "org.koin:koin-ktor:${versions.koin}",
+                    "test"   : "org.koin:koin-test:${versions.koin}"
+            ],
             "junit"       : [
                     "jupiterApi"   : "org.junit.jupiter:junit-jupiter-api:${versions.junit}",
                     "jupiterParams": "org.junit.jupiter:junit-jupiter-params:${versions.junit}",
                     "jupiterEngine": "org.junit.jupiter:junit-jupiter-engine:${versions.junit}"
             ],
-            "exposed"     : "org.jetbrains.exposed:exposed:${versions.exposed}",
+            "exposed"     : "org.jetbrains.exposed:exposed:0.10.5",
             "kluent"      : "org.amshove.kluent:kluent:1.42",
             "logback"     : "ch.qos.logback:logback-classic:1.2.3",
-            "kafkaClients": "org.apache.kafka:kafka-clients:2.0.0",
-            "rxJava2"     : "io.reactivex.rxjava2:rxjava:2.2.3",
             "h2"          : "com.h2database:h2:1.4.197",
             "hikari"      : "com.zaxxer:HikariCP:2.7.8",
+            "kafkaClients": "org.apache.kafka:kafka-clients:2.0.0",
+            "rxJava2"     : "io.reactivex.rxjava2:rxjava:2.2.3"
     ]
 
     ext.isCiBuild = System.getenv("CI") == "true"
