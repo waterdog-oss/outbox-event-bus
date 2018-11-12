@@ -98,5 +98,6 @@ dependencies {
     testImplementation deps.kluent
     testImplementation deps.hikari
     testImplementation deps.h2
+    testImplementation deps.koin.test
     testRuntimeOnly deps.junit.jupiterEngine
 }
