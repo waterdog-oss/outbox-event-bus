@@ -1,34 +1,38 @@
 package mobi.waterdog.eventbus.persistence
 
 import kotlinx.coroutines.experimental.GlobalScope
-import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.experimental.runBlocking
 import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.EventEngine
 import mobi.waterdog.eventbus.model.EventInput
 import org.slf4j.LoggerFactory
+import kotlin.concurrent.thread
 
 internal class PersistentEventWriter(
     private val localEventCache: LocalEventCache,
-    private val eventEngine: EventEngine,
-    private val loopDelay: Long = 1000
+    private val eventEngine: EventEngine
 ) : EventProducer {
 
     private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
 
     init {
-        GlobalScope.launch {
+        thread {
             syncLoop()
         }
     }
 
-    override fun send(eventInput: EventInput) {
+    override fun sendAsync(eventInput: EventInput) {
         GlobalScope.launch {
             localEventCache.storeEvent(eventInput)
         }
     }
 
-    override suspend fun sendAndWaitForAck(eventInput: EventInput): Boolean {
+    override fun send(eventInput: EventInput): Boolean {
+        return runBlocking { sendAndWaitForAck(eventInput) }
+    }
+
+    private suspend fun sendAndWaitForAck(eventInput: EventInput): Boolean {
         return try {
             localEventCache.storeEvent(eventInput)
             true
@@ -39,19 +43,18 @@ internal class PersistentEventWriter(
         }
     }
 
-    private suspend fun syncLoop() {
+    private fun syncLoop() {
+        val queue = localEventCache.getPendingEventQueue()
         while (true) {
-            localEventCache.getAllUndelivered().forEach {
-                try {
-                    log.debug("Sending event to event ${it.topic}/${it.uuid} to backend")
-                    eventEngine.send(it)
-                    localEventCache.markAsDelivered(it.id)
-                } catch (ex: Exception) {
-                    log.error("Event sync failed${ex.message}")
-                    ex.printStackTrace()
-                }
+            try {
+                val item = queue.take()
+                log.trace("Sending event to event ${item.topic}/${item.uuid} to backend")
+                eventEngine.send(item)
+                localEventCache.markAsDelivered(item.id)
+            } catch (ex: Exception) {
+                log.error("Event sync failed${ex.message}")
+                ex.printStackTrace()
             }
-            delay(loopDelay)
         }
     }
 }

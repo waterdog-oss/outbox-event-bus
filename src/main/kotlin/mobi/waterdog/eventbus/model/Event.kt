@@ -7,7 +7,8 @@ internal data class Event(
     val delivered: Boolean,
     val topic: String,
     val uuid: String,
-    val timestamp: Instant,
+    val storeTimestamp: Instant,
+    val sentTimestamp: Instant?,
     val msgType: String,
     val mimeType: String,
     val payload: ByteArray
@@ -22,7 +23,8 @@ internal data class Event(
         if (delivered != other.delivered) return false
         if (topic != other.topic) return false
         if (uuid != other.uuid) return false
-        if (timestamp != other.timestamp) return false
+        if (storeTimestamp != other.storeTimestamp) return false
+        if (sentTimestamp != other.sentTimestamp) return false
         if (msgType != other.msgType) return false
         if (mimeType != other.mimeType) return false
 
@@ -34,7 +36,12 @@ internal data class Event(
         result = 31 * result + delivered.hashCode()
         result = 31 * result + topic.hashCode()
         result = 31 * result + uuid.hashCode()
-        result = 31 * result + timestamp.hashCode()
+        result = 31 * result + storeTimestamp.hashCode()
+
+        if (sentTimestamp != null) {
+            result = 31 * result + sentTimestamp.hashCode()
+        }
+
         result = 31 * result + msgType.hashCode()
         result = 31 * result + mimeType.hashCode()
         return result
