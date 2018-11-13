@@ -5,19 +5,19 @@ import mobi.waterdog.eventbus.model.EventOutput
 import java.time.Instant
 
 internal class KafkaEvent(
-    val topic: String,
-    val uuid: String,
-    val timestamp: String,
-    val msgType: String,
-    val mimeType: String,
-    val payload: String
+    private val topic: String,
+    private val uuid: String,
+    private val timestamp: String,
+    private val msgType: String,
+    private val mimeType: String,
+    private val payload: String
 ) {
     companion object {
         fun build(event: Event): KafkaEvent {
             return KafkaEvent(
                 event.topic,
                 event.uuid,
-                event.timestamp.toString(),
+                Instant.now().toString(),
                 event.msgType,
                 event.mimeType,
                 String(event.payload)

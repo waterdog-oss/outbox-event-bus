@@ -43,7 +43,7 @@ internal class PersistentEventWriter(
         while (true) {
             localEventCache.getAllUndelivered().forEach {
                 try {
-                    log.debug("Sending event to event ${it.topic}/${it.uuid} to backend")
+                    log.trace("Sending event to event ${it.topic}/${it.uuid} to backend")
                     eventEngine.send(it)
                     localEventCache.markAsDelivered(it.id)
                 } catch (ex: Exception) {

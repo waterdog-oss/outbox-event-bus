@@ -12,13 +12,14 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         databaseConnection.query {
             val event = EventDAO[eventId]
             event.delivered = true
+            event.sendTimestamp = Instant.now().toString()
         }
     }
 
     override suspend fun getAllUndelivered(): List<Event> {
         return databaseConnection.query {
             EventDAO.find { EventTable.delivered eq false }.map { it.toFullModel() }
-        }
+        }.sortedBy { EventTable.storedTimestamp }
     }
 
     override suspend fun storeEvent(eventInput: EventInput): Event {
@@ -27,7 +28,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
                 topic = eventInput.topic
                 delivered = false
                 uuid = UUID.randomUUID().toString()
-                sendTimestamp = Instant.now().toString()
+                storedTimestamp = Instant.now().toString()
                 msgType = eventInput.msgType
                 mimeType = eventInput.mimeType
                 payload = SerialBlob(eventInput.payload)

@@ -18,7 +18,7 @@ internal class KafkaEngine(producerConfigs: Properties) : EventEngine {
     }
 
     override fun send(event: Event) {
-        log.debug("Forwarding event ${event.topic}/${event.uuid} to kafka")
+        log.trace("Forwarding event ${event.topic}/${event.uuid} to kafka")
         producer.send(ProducerRecord(event.topic, serializeEvent(event)))
     }
 

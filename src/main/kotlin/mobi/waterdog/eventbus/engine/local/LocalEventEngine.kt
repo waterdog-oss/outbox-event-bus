@@ -7,11 +7,12 @@ import mobi.waterdog.eventbus.EventConsumer
 import mobi.waterdog.eventbus.engine.EventEngine
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventOutput
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 internal fun Event.toOutputEvent(): EventOutput = EventOutput(
     this.uuid,
-    this.timestamp,
+    Instant.now(),
     this.topic,
     this.msgType,
     this.mimeType,
