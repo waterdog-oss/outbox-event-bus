@@ -4,13 +4,13 @@ import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventOutput
 import java.time.Instant
 
-internal class KafkaEvent(
-    private val topic: String,
-    private val uuid: String,
-    private val timestamp: String,
-    private val msgType: String,
-    private val mimeType: String,
-    private val payload: String
+internal data class KafkaEvent(
+    val topic: String,
+    val uuid: String,
+    val timestamp: String,
+    val msgType: String,
+    val mimeType: String,
+    val payload: String
 ) {
     companion object {
         fun build(event: Event): KafkaEvent {
