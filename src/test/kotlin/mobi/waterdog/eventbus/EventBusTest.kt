@@ -80,7 +80,7 @@ class EventBusTest : KoinTest {
                 "application/json",
                 jsonMsg.toByteArray()
             )
-            eventProducer.send(event)
+            eventProducer.sendAsync(event)
         }
     }
 
@@ -106,7 +106,7 @@ class EventBusTest : KoinTest {
                     "application/json",
                     jsonMsg.toByteArray()
                 )
-                val result = eventProducer.sendAndWaitForAck(event)
+                val result = eventProducer.send(event)
                 result.`should be true`()
             }
             delay(500)

@@ -31,14 +31,13 @@ internal class EventDAO(id: EntityID<Long>) : LongEntity(id) {
     var payload by EventTable.payload
 
     fun toFullModel(): Event {
-        val sendTs = if (sendTimestamp != null) Instant.parse(sendTimestamp) else null
         return Event(
             id.value,
             delivered,
             topic,
             uuid,
             Instant.parse(storedTimestamp),
-            sendTs,
+            sendTimestamp?.let { Instant.parse(sendTimestamp) },
             msgType,
             mimeType,
             payload.binaryStream.readBytes()

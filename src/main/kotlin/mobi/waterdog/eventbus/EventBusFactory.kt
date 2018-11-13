@@ -31,8 +31,7 @@ internal class EventBusFactory(private val localEventCache: LocalEventCache) : E
 
     override fun getProducer(): EventProducer {
         try {
-            val delay = props?.get("sync.delayMillis")?.toString()?.toLong() ?: 100
-            producerInstance = producerInstance ?: PersistentEventWriter(localEventCache, engine!!, delay)
+            producerInstance = producerInstance ?: PersistentEventWriter(localEventCache, engine!!)
             return producerInstance!!
         } catch (npe: NullPointerException) {
             throw IllegalStateException("Please call setup")
