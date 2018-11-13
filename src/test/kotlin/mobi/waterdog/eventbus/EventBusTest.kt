@@ -9,7 +9,11 @@ import kotlinx.coroutines.experimental.runBlocking
 import mobi.waterdog.eventbus.model.EventInput
 import org.amshove.kluent.`should be true`
 import org.amshove.kluent.`should equal`
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.koin.dsl.module.module
 import org.koin.standalone.StandAloneContext.startKoin
 import org.koin.standalone.StandAloneContext.stopKoin
@@ -71,10 +75,10 @@ class EventBusTest : KoinTest {
 
         repeat(n) {
             val event = EventInput(
-                    targetTopic1,
-                    "Sample",
-                    "application/json",
-                    jsonMsg.toByteArray()
+                targetTopic1,
+                "Sample",
+                "application/json",
+                jsonMsg.toByteArray()
             )
             eventProducer.send(event)
         }
@@ -86,21 +90,21 @@ class EventBusTest : KoinTest {
         var count = 0
         val n = 10
         eventConsumer.stream(targetTopic2)
-                .filter { it.msgType == "Sample" && it.mimeType == "application/json" }
-                .map { String(it.payload) }
-                .subscribe {
-                    it `should equal` jsonMsg
-                    count += 1
-                }
+            .filter { it.msgType == "Sample" && it.mimeType == "application/json" }
+            .map { String(it.payload) }
+            .subscribe {
+                it `should equal` jsonMsg
+                count += 1
+            }
         eventConsumer.listSubscribers(targetTopic2).size `should equal` 1
 
         runBlocking {
             repeat(n) {
                 val event = EventInput(
-                        targetTopic2,
-                        "Sample",
-                        "application/json",
-                        jsonMsg.toByteArray()
+                    targetTopic2,
+                    "Sample",
+                    "application/json",
+                    jsonMsg.toByteArray()
                 )
                 val result = eventProducer.sendAndWaitForAck(event)
                 result.`should be true`()

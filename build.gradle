@@ -79,6 +79,16 @@ test {
     useJUnitPlatform()
 }
 
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+}
+
 dependencies {
     implementation deps.kotlin.stdlib.jdk
     implementation deps.kotlin.coroutines.core
