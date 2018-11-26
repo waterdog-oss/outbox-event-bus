@@ -1,5 +1,5 @@
 group = "waterdog.mobi"
-version = "0.1"
+version = "0.5"
 
 buildscript {
     ext.versions = [
