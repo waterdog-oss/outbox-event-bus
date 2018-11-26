@@ -22,7 +22,7 @@ buildscript {
                     "core"    : "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
                     "databind": "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}",
                     "kotlin"  : "com.fasterxml.jackson.module:jackson-module-kotlin:${versions.jackson}",
-                    "jsr310"  : "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.2"
+                    "jsr310"  : "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${versions.jackson}"
             ],
             "koin"        : [
                     "core"   : "org.koin:koin-core:${versions.koin}",
