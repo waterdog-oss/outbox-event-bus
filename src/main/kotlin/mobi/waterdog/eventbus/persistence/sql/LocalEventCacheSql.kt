@@ -1,6 +1,5 @@
 package mobi.waterdog.eventbus.persistence.sql
 
-import kotlinx.coroutines.experimental.runBlocking
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.persistence.LocalEventCache
@@ -14,13 +13,18 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
 
     private val pendingEvents: BlockingQueue<Event> = LinkedBlockingQueue()
 
-    override fun markAsDelivered(eventId: Long) {
-        runBlocking {
-            databaseConnection.query {
-                val event = EventDAO[eventId]
-                event.delivered = true
-                event.sendTimestamp = Instant.now().toString()
-            }
+    override suspend fun markAsDelivered(eventId: Long) {
+
+        databaseConnection.query {
+            val event = EventDAO[eventId]
+            event.delivered = true
+            event.sendTimestamp = Instant.now().toString()
+        }
+    }
+
+    override suspend fun getEvent(eventId: Long): Event? {
+        return databaseConnection.query {
+            EventDAO.find { EventTable.id eq eventId }.firstOrNull()?.toFullModel()
         }
     }
 
