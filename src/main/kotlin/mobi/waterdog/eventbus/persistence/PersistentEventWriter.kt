@@ -1,13 +1,20 @@
 package mobi.waterdog.eventbus.persistence
 
 import kotlinx.coroutines.experimental.GlobalScope
+import kotlinx.coroutines.experimental.delay
 import kotlinx.coroutines.experimental.launch
 import kotlinx.coroutines.experimental.runBlocking
 import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.EventEngine
+import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
+import org.jetbrains.exposed.exceptions.EntityNotFoundException
 import org.slf4j.LoggerFactory
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
+
+internal class MaxRetriesExceededException(item: Event) :
+    RuntimeException("Could not sync item #${item.id}. Max retries exceeded")
 
 internal class PersistentEventWriter(
     private val localEventCache: LocalEventCache,
@@ -18,10 +25,16 @@ internal class PersistentEventWriter(
         private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
     }
 
+    private val sentItemsToSync = LinkedBlockingQueue<Event>()
+
     init {
-        thread(name="${PersistentEventWriter::class.simpleName}-Thread") {
-            log.debug("Sync loop started")
+        thread(name = "${PersistentEventWriter::class.simpleName}-SenderThread") {
+            log.debug("SenderThread loop started")
             syncLoop()
+        }
+        thread(name = "${PersistentEventWriter::class.simpleName}-CacheSyncThread") {
+            log.debug("CacheSyncThread loop started")
+            cacheSyncLoop()
         }
     }
 
@@ -49,20 +62,41 @@ internal class PersistentEventWriter(
     private fun syncLoop() {
         val queue = localEventCache.getPendingEventQueue()
         while (true) {
+            val item = queue.take()
             try {
-                val item = queue.take()
+                log.trace("Sending event to event ${item.topic}/${item.uuid} to backend")
+                eventEngine.send(item)
+                sentItemsToSync.put(item)
+            } catch (ex: Exception) {
+                log.error("Event sync ${item.id} failed${ex.message}")
+                ex.printStackTrace()
+            }
+        }
+    }
+
+    private fun cacheSyncLoop() {
+        while (true) {
+            val item = sentItemsToSync.take()
+            val retries = 3 //TODO: Extract to conf
+            try {
                 runBlocking {
-                    log.trace("Sending event to event ${item.topic}/${item.uuid} to backend")
-                    val event = localEventCache.getEvent(item.id)
-                    if (event != null) {
-                        eventEngine.send(item)
-                        localEventCache.markAsDelivered(item.id)
-                    } else {
-                        log.warn("Skipping event: ${item.id}. Item in queue but not in database")
+                    var synced = false
+                    for (i in retries downTo 0) {
+                        try {
+                            localEventCache.markAsDelivered(item.id)
+                            synced = true
+                            break
+                        } catch (ex: EntityNotFoundException) {
+                            log.debug("Item not found in cache, wait...")
+                            delay(50) //TODO: Extract to conf
+                        }
+                    }
+                    if (!synced) {
+                        throw MaxRetriesExceededException(item)
                     }
                 }
             } catch (ex: Exception) {
-                log.error("Event sync failed${ex.message}")
+                log.error("CacheSyncThread failed ${ex.message}")
                 ex.printStackTrace()
             }
         }
