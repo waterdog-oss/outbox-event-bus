@@ -17,7 +17,8 @@ internal class PersistentEventWriter(
     private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
 
     init {
-        thread {
+        thread(name="${PersistentEventWriter::class.simpleName}-Thread") {
+            log.debug("Sync loop started")
             syncLoop()
         }
     }
