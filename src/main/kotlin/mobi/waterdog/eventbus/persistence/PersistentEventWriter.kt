@@ -79,21 +79,19 @@ internal class PersistentEventWriter(
             val item = sentItemsToSync.take()
             val retries = 3 //TODO: Extract to conf
             try {
-                runBlocking {
-                    var synced = false
-                    for (i in retries downTo 0) {
-                        try {
-                            localEventCache.markAsDelivered(item.id)
-                            synced = true
-                            break
-                        } catch (ex: EntityNotFoundException) {
-                            log.debug("Item not found in cache, wait...")
-                            delay(50) //TODO: Extract to conf
-                        }
+                var synced = false
+                for (i in retries downTo 0) {
+                    try {
+                        runBlocking { localEventCache.markAsDelivered(item.id) }
+                        synced = true
+                        break
+                    } catch (ex: EntityNotFoundException) {
+                        log.debug("Item not found in cache, wait...")
+                        runBlocking { delay(50) } //TODO: Extract to conf
                     }
-                    if (!synced) {
-                        throw MaxRetriesExceededException(item)
-                    }
+                }
+                if (!synced) {
+                    throw MaxRetriesExceededException(item)
                 }
             } catch (ex: Exception) {
                 log.error("CacheSyncThread failed ${ex.message}")
