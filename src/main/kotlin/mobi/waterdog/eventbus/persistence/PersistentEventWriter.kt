@@ -14,7 +14,9 @@ internal class PersistentEventWriter(
     private val eventEngine: EventEngine
 ) : EventProducer {
 
-    private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
+    companion object {
+        private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
+    }
 
     init {
         thread(name="${PersistentEventWriter::class.simpleName}-Thread") {
@@ -49,9 +51,16 @@ internal class PersistentEventWriter(
         while (true) {
             try {
                 val item = queue.take()
-                log.trace("Sending event to event ${item.topic}/${item.uuid} to backend")
-                eventEngine.send(item)
-                localEventCache.markAsDelivered(item.id)
+                runBlocking {
+                    log.trace("Sending event to event ${item.topic}/${item.uuid} to backend")
+                    val event = localEventCache.getEvent(item.id)
+                    if (event != null) {
+                        eventEngine.send(item)
+                        localEventCache.markAsDelivered(item.id)
+                    } else {
+                        log.warn("Skipping event: ${item.id}. Item in queue but not in database")
+                    }
+                }
             } catch (ex: Exception) {
                 log.error("Event sync failed${ex.message}")
                 ex.printStackTrace()
