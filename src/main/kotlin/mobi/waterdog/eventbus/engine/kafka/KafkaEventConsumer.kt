@@ -52,7 +52,10 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
         }
 
         if (subscribers[topicName]!![subscriberId] == null) {
-            val consumerProps = Properties(props)
+            val consumerProps = Properties()
+            props.stringPropertyNames().forEach { propName ->
+                consumerProps.setProperty(propName, props[propName].toString())
+            }
             consumerProps.setProperty("group.id", subscriberId)
             val consumer: Consumer<String, String> = KafkaConsumer(consumerProps)
             consumer.subscribe(listOf(topicName))
