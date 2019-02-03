@@ -2,10 +2,10 @@ package mobi.waterdog.eventbus
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import kotlinx.coroutines.experimental.CoroutineDispatcher
-import kotlinx.coroutines.experimental.delay
-import kotlinx.coroutines.experimental.newFixedThreadPoolContext
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.model.EventInput
 import org.amshove.kluent.`should be true`
 import org.amshove.kluent.`should equal`
@@ -19,6 +19,7 @@ import org.koin.standalone.StandAloneContext.startKoin
 import org.koin.standalone.StandAloneContext.stopKoin
 import org.koin.standalone.inject
 import org.koin.test.KoinTest
+import java.util.concurrent.Executors
 import javax.sql.DataSource
 
 class EventBusTest : KoinTest {
@@ -37,7 +38,7 @@ class EventBusTest : KoinTest {
                 })
             }
             single<CoroutineDispatcher> {
-                newFixedThreadPoolContext(5, "database-pool")
+                Executors.newFixedThreadPool(5).asCoroutineDispatcher()
             }
         }, getModule()))
     }
