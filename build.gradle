@@ -1,9 +1,9 @@
 group = "waterdog.mobi"
-version = "0.8"
+version = "0.9"
 
 buildscript {
     ext.versions = [
-            "kotlin" : "1.3.11",
+            "kotlin" : "1.3.21",
             "junit"  : "5.3.1",
             "koin"   : "1.0.2",
             "jackson": "2.9.7"
@@ -14,8 +14,8 @@ buildscript {
                     "stdlib"    : [
                             "jdk": "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions.kotlin}"
                     ],
-                    "reflect"   : "org.jetbrains.kotlin:kotlin-reflect:1.3.11",
-                    "coroutines": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.0"
+                    "reflect"   : "org.jetbrains.kotlin:kotlin-reflect:${versions.kotlin}",
+                    "coroutines": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
             ],
             "jackson"     : [
                     "core"    : "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
@@ -34,7 +34,7 @@ buildscript {
                     "jupiterParams": "org.junit.jupiter:junit-jupiter-params:${versions.junit}",
                     "jupiterEngine": "org.junit.jupiter:junit-jupiter-engine:${versions.junit}"
             ],
-            "exposed"     : "org.jetbrains.exposed:exposed:0.10.5",
+            "exposed"     : "org.jetbrains.exposed:exposed:0.12.2",
             "kluent"      : "org.amshove.kluent:kluent:1.47",
             "logback"     : "ch.qos.logback:logback-classic:1.2.3",
             "h2"          : "com.h2database:h2:1.4.197",
