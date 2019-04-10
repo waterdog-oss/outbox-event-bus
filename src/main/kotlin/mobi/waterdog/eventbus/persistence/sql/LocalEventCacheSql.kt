@@ -3,7 +3,7 @@ package mobi.waterdog.eventbus.persistence.sql
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.persistence.LocalEventCache
-import java.time.Instant
+import org.joda.time.Instant
 import java.util.UUID
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -18,7 +18,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         databaseConnection.query {
             val event = EventDAO[eventId]
             event.delivered = true
-            event.sendTimestamp = Instant.now().toString()
+            event.sendTimestamp = Instant.now().toDateTime()
         }
     }
 
@@ -38,7 +38,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
                 topic = eventInput.topic
                 delivered = false
                 uuid = UUID.randomUUID().toString()
-                storedTimestamp = Instant.now().toString()
+                storedTimestamp = Instant.now().toDateTime()
                 msgType = eventInput.msgType
                 mimeType = eventInput.mimeType
                 payload = SerialBlob(eventInput.payload)

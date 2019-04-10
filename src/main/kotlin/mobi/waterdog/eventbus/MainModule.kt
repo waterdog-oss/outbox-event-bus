@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
 
 fun getModule(initTables: Boolean = true): Module {
     return module {
-        val dbc = DatabaseConnection(get(), get())
+        val dbc = DatabaseConnection(get())
         val localEventCache = LocalEventCacheSql(dbc)
 
         if (initTables) {
