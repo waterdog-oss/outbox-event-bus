@@ -6,7 +6,9 @@ import io.reactivex.Flowable
 import io.reactivex.FlowableEmitter
 import mobi.waterdog.eventbus.EventConsumer
 import mobi.waterdog.eventbus.model.EventOutput
+import org.apache.kafka.clients.consumer.CommitFailedException
 import org.apache.kafka.clients.consumer.Consumer
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.slf4j.LoggerFactory
 import java.time.Duration
@@ -34,17 +36,13 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
             while (true) {
                 val records = consumer.poll(Duration.ofMillis(syncInterval))
                 for (record in records) {
-                    try {
-                        val kafkaEvent: KafkaEvent = JsonSettings.mapper.readValue(record.value())
-                        emitter.onNext(kafkaEvent.toEventOutput())
-                    } catch (ex: Exception) {
-                        log.error("Error processing event", ex)
-                    }
+                    consumeRecord(record, emitter)
                 }
+                commitConsumedOffsets(consumer, emitter)
             }
         }
     }
-
+    
     override fun unsubscribe(topicName: String, consumerId: String) {
         subscribers[topicName]?.remove(consumerId)
     }
@@ -75,5 +73,30 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
             subscribers[topicName]!![subscriberId] = consumer
         }
         return subscribers[topicName]!![subscriberId]!!
+    }
+
+    private fun commitConsumedOffsets(
+        consumer: Consumer<String, String>,
+        emitter: FlowableEmitter<EventOutput>
+    ) {
+        try {
+            //Running with "At least once" semantics
+            consumer.commitSync()
+        } catch (e: CommitFailedException) {
+            log.error("Error commiting records to kafka", e)
+            emitter.onError(e)
+        }
+    }
+
+    private fun consumeRecord(
+        record: ConsumerRecord<String, String>,
+        emitter: FlowableEmitter<EventOutput>
+    ) {
+        try {
+            val kafkaEvent: KafkaEvent = JsonSettings.mapper.readValue(record.value())
+            emitter.onNext(kafkaEvent.toEventOutput())
+        } catch (ex: Exception) {
+            log.error("Error processing event", ex)
+        }
     }
 }
