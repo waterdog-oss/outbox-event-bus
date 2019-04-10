@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class KafkaEventConsumer(private val props: Properties) : EventConsumer {
 
@@ -25,6 +26,7 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
     private val backpressureStrategy =
         props["consumer.backpressureStrategy"]?.let { BackpressureStrategy.valueOf(it.toString()) }
             ?: BackpressureStrategy.ERROR
+    private val isPollLoopStarted = AtomicBoolean(true)
 
     private
     val subscribers: MutableMap<String, ConcurrentHashMap<String, Consumer<String, String>>> =
@@ -33,17 +35,20 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
     override fun stream(topicName: String, consumerId: String): Flowable<EventOutput> {
         val consumer = subscribe(topicName, consumerId)
         return createFlowable(backpressureStrategy) { emitter ->
-            while (true) {
+            while (isPollLoopStarted.get()) {
                 val records = consumer.poll(Duration.ofMillis(syncInterval))
                 for (record in records) {
                     consumeRecord(record, emitter)
                 }
                 commitConsumedOffsets(consumer, emitter)
             }
+            consumer.close()
+            consumer.wakeup()
         }
     }
-    
+
     override fun unsubscribe(topicName: String, consumerId: String) {
+        isPollLoopStarted.set(false)
         subscribers[topicName]?.remove(consumerId)
     }
 

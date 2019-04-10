@@ -53,8 +53,7 @@ internal class PersistentEventWriter(
             localEventCache.storeEvent(eventInput)
             true
         } catch (ex: Exception) {
-            log.error("Event storage failed${ex.message}")
-            ex.printStackTrace()
+            log.error("Event storage failed${ex.message}", ex)
             false
         }
     }
@@ -68,8 +67,7 @@ internal class PersistentEventWriter(
                 eventEngine.send(item)
                 sentItemsToSync.put(item)
             } catch (ex: Exception) {
-                log.error("Event sync ${item.id} failed${ex.message}")
-                ex.printStackTrace()
+                log.error("Event sync ${item.id} failed${ex.message}", ex)
             }
         }
     }
