@@ -8,25 +8,38 @@ import mobi.waterdog.eventbus.EventConsumer
 import mobi.waterdog.eventbus.model.EventOutput
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
 
 internal class KafkaEventConsumer(private val props: Properties) : EventConsumer {
 
-    private val subscribers: MutableMap<String, ConcurrentHashMap<String, Consumer<String, String>>> =
+    companion object {
+        private val log = LoggerFactory.getLogger(KafkaEventConsumer::class.java)
+    }
+
+    private val syncInterval = props["consumer.syncInterval"]?.toString()?.toLong() ?: 100L
+    private val backpressureStrategy =
+        props["consumer.backpressureStrategy"]?.let { BackpressureStrategy.valueOf(it.toString()) }
+            ?: BackpressureStrategy.ERROR
+
+    private
+    val subscribers: MutableMap<String, ConcurrentHashMap<String, Consumer<String, String>>> =
         ConcurrentHashMap()
 
     override fun stream(topicName: String, consumerId: String): Flowable<EventOutput> {
         val consumer = subscribe(topicName, consumerId)
-        return createFlowable(BackpressureStrategy.ERROR) { emitter ->
+        return createFlowable(backpressureStrategy) { emitter ->
             while (true) {
-                val syncInterval: Long =
-                    if (props["consumer.syncInterval"] != null) props["consumer.syncInterval"].toString().toLong() else 100L
                 val records = consumer.poll(Duration.ofMillis(syncInterval))
                 for (record in records) {
-                    val kafkaEvent: KafkaEvent = JsonSettings.mapper.readValue(record.value())
-                    emitter.onNext(kafkaEvent.toEventOutput())
+                    try {
+                        val kafkaEvent: KafkaEvent = JsonSettings.mapper.readValue(record.value())
+                        emitter.onNext(kafkaEvent.toEventOutput())
+                    } catch (ex: Exception) {
+                        log.error("Error processing event", ex)
+                    }
                 }
             }
         }

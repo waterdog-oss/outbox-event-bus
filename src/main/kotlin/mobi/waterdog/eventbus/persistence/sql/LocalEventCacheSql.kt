@@ -13,8 +13,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
 
     private val pendingEvents: BlockingQueue<Event> = LinkedBlockingQueue()
 
-    override suspend fun markAsDelivered(eventId: Long) {
-
+    override fun markAsDelivered(eventId: Long) {
         databaseConnection.query {
             val event = EventDAO[eventId]
             event.delivered = true
@@ -22,7 +21,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         }
     }
 
-    override suspend fun getEvent(eventId: Long): Event? {
+    override fun getEvent(eventId: Long): Event? {
         return databaseConnection.query {
             EventDAO.find { EventTable.id eq eventId }.firstOrNull()?.toFullModel()
         }
@@ -32,7 +31,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         return pendingEvents
     }
 
-    override suspend fun storeEvent(eventInput: EventInput): Event {
+    override fun storeEvent(eventInput: EventInput): Event {
         return databaseConnection.query {
             val evt = EventDAO.new {
                 topic = eventInput.topic

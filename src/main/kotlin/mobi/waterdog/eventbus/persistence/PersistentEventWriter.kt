@@ -45,10 +45,10 @@ internal class PersistentEventWriter(
     }
 
     override fun send(eventInput: EventInput): Boolean {
-        return runBlocking { sendAndWaitForAck(eventInput) }
+        return sendAndWaitForAck(eventInput)
     }
 
-    private suspend fun sendAndWaitForAck(eventInput: EventInput): Boolean {
+    private fun sendAndWaitForAck(eventInput: EventInput): Boolean {
         return try {
             localEventCache.storeEvent(eventInput)
             true
@@ -82,7 +82,7 @@ internal class PersistentEventWriter(
                 var synced = false
                 for (i in retries downTo 0) {
                     try {
-                        runBlocking { localEventCache.markAsDelivered(item.id) }
+                        localEventCache.markAsDelivered(item.id)
                         synced = true
                         break
                     } catch (ex: EntityNotFoundException) {

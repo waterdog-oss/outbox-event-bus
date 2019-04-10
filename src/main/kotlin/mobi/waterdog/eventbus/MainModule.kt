@@ -6,7 +6,6 @@ import mobi.waterdog.eventbus.persistence.sql.LocalEventCacheSql
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.koin.dsl.module.Module
 import org.koin.dsl.module.module
-import kotlinx.coroutines.runBlocking
 
 fun getModule(initTables: Boolean = true): Module {
     return module {
@@ -14,10 +13,8 @@ fun getModule(initTables: Boolean = true): Module {
         val localEventCache = LocalEventCacheSql(dbc)
 
         if (initTables) {
-            runBlocking {
-                dbc.query {
-                    SchemaUtils.create(EventTable)
-                }
+            dbc.query {
+                SchemaUtils.create(EventTable)
             }
         }
 
