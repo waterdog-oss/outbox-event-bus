@@ -1,6 +1,7 @@
 package mobi.waterdog.eventbus.model
 
 import java.time.Instant
+import java.util.UUID
 
 internal data class Event(
     val id: Long,
@@ -105,5 +106,18 @@ data class EventOutput(
         result = 31 * result + msgType.hashCode()
         result = 31 * result + mimeType.hashCode()
         return result
+    }
+
+    companion object {
+        fun buildError(): EventOutput {
+            return EventOutput(
+                UUID.randomUUID().toString(),
+                Instant.now(),
+                "ERROR",
+                "ERROR",
+                "text/plain",
+                "ERROR".toByteArray()
+            )
+        }
     }
 }

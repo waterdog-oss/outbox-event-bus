@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  labels:
+    app: consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+        - name: consumer
+          image: consumer:dev
+          ports:
+            - containerPort: 8080
+            - containerPort: 5005
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: consumer
+spec:
+  selector:
+    app: consumer
+  ports:
+    - name: app
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - name: debug
+      protocol: TCP
+      port: 5005
+      targetPort: 5005
+  type: ClusterIP
