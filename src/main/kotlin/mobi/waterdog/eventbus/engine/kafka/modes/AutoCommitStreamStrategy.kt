@@ -5,6 +5,7 @@ import io.reactivex.Flowable
 import mobi.waterdog.eventbus.engine.kafka.StreamStrategy
 import mobi.waterdog.eventbus.model.EventOutput
 import org.apache.kafka.clients.consumer.Consumer
+import org.apache.kafka.common.errors.WakeupException
 import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,13 +24,20 @@ internal class AutoCommitStreamStrategy(props: Properties) : StreamStrategy() {
         backpressureStrategy: BackpressureStrategy
     ): Flowable<EventOutput> {
         return createFlowable(backpressureStrategy) { emitter ->
-            while (isPollLoopStarted.get()) {
-                val records = consumer.poll(Duration.ofMillis(syncInterval))
-                for (record in records) {
-                    consumeRecord(record, emitter)
+            try {
+                while (isPollLoopStarted.get()) {
+                    val records = consumer.poll(Duration.ofMillis(syncInterval))
+                    for (record in records) {
+                        consumeRecord(record, emitter)
+                    }
                 }
+            } catch (wex: WakeupException) {
+                //ignore
+            } catch (ex: Exception) {
+                emitter.onError(ex)
+            } finally {
+                consumer.close()
             }
-            consumer.close()
         }
     }
 }
