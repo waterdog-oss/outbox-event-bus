@@ -9,9 +9,9 @@ cd consumer && docker build -t consumer:dev .
 cd producer && docker build -t producer:dev .
 
 # deploy
-kubectl -f k8s/zookeeper/zookeeper.yaml
-kubectl -f k8s/kafka/kafka.yaml
-kubectl -f k8s/manager/kafka-manager.yaml
-kubectl -f k8s/producer/producer.yaml
-kubectl -f k8s/consumer/consumer.yaml
+kubectl apply -f k8s/zookeeper/zookeeper.yaml
+kubectl apply -f k8s/kafka/kafka.yaml
+kubectl apply -f k8s/manager/kafka-manager.yaml
+kubectl apply -f k8s/producer/producer.yaml
+kubectl apply -f k8s/consumer/consumer.yaml
 
