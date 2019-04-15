@@ -16,6 +16,6 @@ fun eventBusKoinModule(): Module {
             SchemaUtils.create(EventTable)
         }
 
-        single<EventBusProvider> { EventBusFactory(localEventCache) }
+        single<EventBusFactory> { EventBusFactoryImpl(localEventCache) }
     }
 }

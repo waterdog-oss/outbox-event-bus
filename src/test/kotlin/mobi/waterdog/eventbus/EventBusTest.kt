@@ -39,7 +39,7 @@ class EventBusTest : KoinTest {
 
     private val targetTopic1 = "MyTopic1"
     private val targetTopic2 = "MyTopic2"
-    private val ebf by inject<EventBusProvider>()
+    private val ebf by inject<EventBusFactory>()
     private val eventProducer: EventProducer by lazy { ebf.getProducer() }
     private val eventConsumer: EventConsumer by lazy { ebf.getConsumer() }
 
