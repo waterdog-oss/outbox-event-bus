@@ -8,6 +8,7 @@ import mobi.waterdog.eventbus.model.EventOutput
 import org.apache.kafka.clients.consumer.CommitFailedException
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.common.errors.WakeupException
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,7 +34,15 @@ internal abstract class StreamStrategy {
     ) {
         try {
             consumer.commitSync()
+        } catch (e: WakeupException) {
+            // we're shutting down, but finish the commit first and then
+            // rethrow the exception so that the main loop can exit
+            commitConsumedOffsets(consumer, emitter)
+            emitter.onError(e)
         } catch (e: CommitFailedException) {
+            // the commit failed with an unrecoverable error. if there is any
+            // internal state which depended on the commit, you can clean it
+            // up here. otherwise it's reasonable to ignore the error and go on
             log.error("Error commiting records to kafka", e)
             emitter.onError(e)
         }

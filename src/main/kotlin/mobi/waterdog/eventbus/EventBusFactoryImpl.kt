@@ -7,7 +7,7 @@ import mobi.waterdog.eventbus.persistence.LocalEventCache
 import mobi.waterdog.eventbus.persistence.PersistentEventWriter
 import java.util.Properties
 
-internal interface EventBusProvider {
+private interface EventBusProvider {
     fun getProducer(props: Properties = Properties()): EventProducer
     fun getConsumer(props: Properties = Properties()): EventConsumer
 }
