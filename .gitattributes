@@ -4,6 +4,9 @@
 # Binary data
 *.png binary
 *.jpg binary
+*.zip binary
+*.gz binary
+*.tar binary
 
 # Just force any windows batch file to have the CRLF line ends
 *.bat text eol=crlf

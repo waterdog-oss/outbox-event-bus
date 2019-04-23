@@ -1,12 +1,12 @@
 group = "waterdog.mobi"
-version = "0.9"
+version = "0.10"
 
 buildscript {
     ext.versions = [
             "kotlin" : "1.3.21",
-            "junit"  : "5.3.1",
+            "junit"  : "5.4.1",
             "koin"   : "1.0.2",
-            "jackson": "2.9.7"
+            "jackson": "2.9.8"
     ]
 
     ext.deps = [
@@ -14,8 +14,7 @@ buildscript {
                     "stdlib"    : [
                             "jdk": "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions.kotlin}"
                     ],
-                    "reflect"   : "org.jetbrains.kotlin:kotlin-reflect:${versions.kotlin}",
-                    "coroutines": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.1.1"
+                    "reflect"   : "org.jetbrains.kotlin:kotlin-reflect:${versions.kotlin}"
             ],
             "jackson"     : [
                     "core"    : "com.fasterxml.jackson.core:jackson-core:${versions.jackson}",
@@ -26,7 +25,6 @@ buildscript {
             "koin"        : [
                     "core"   : "org.koin:koin-core:${versions.koin}",
                     "coreExt": "org.koin:koin-core-ext:${versions.koin}",
-                    "ktor"   : "org.koin:koin-ktor:${versions.koin}",
                     "test"   : "org.koin:koin-test:${versions.koin}"
             ],
             "junit"       : [
@@ -34,13 +32,13 @@ buildscript {
                     "jupiterParams": "org.junit.jupiter:junit-jupiter-params:${versions.junit}",
                     "jupiterEngine": "org.junit.jupiter:junit-jupiter-engine:${versions.junit}"
             ],
-            "exposed"     : "org.jetbrains.exposed:exposed:0.12.2",
+            "exposed"     : "org.jetbrains.exposed:exposed:0.13.6",
             "kluent"      : "org.amshove.kluent:kluent:1.47",
             "logback"     : "ch.qos.logback:logback-classic:1.2.3",
             "h2"          : "com.h2database:h2:1.4.197",
             "hikari"      : "com.zaxxer:HikariCP:2.7.8",
-            "kafkaClients": "org.apache.kafka:kafka-clients:2.0.0",
-            "rxJava2"     : "io.reactivex.rxjava2:rxjava:2.2.3"
+            "kafkaClients": "org.apache.kafka:kafka-clients:2.2.0",
+            "rxJava2"     : "io.reactivex.rxjava2:rxjava:2.2.8"
     ]
 
     ext.isCiBuild = System.getenv("CI") == "true"
@@ -48,14 +46,18 @@ buildscript {
     repositories {
         mavenCentral()
         gradlePluginPortal()
+        jcenter()
     }
 
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin}"
         classpath "gradle.plugin.org.jlleitschuh.gradle:ktlint-gradle:5.0.0"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.4'
     }
 }
 
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: "java"
 apply plugin: "kotlin"
 apply plugin: "org.jlleitschuh.gradle.ktlint"
 
@@ -65,7 +67,6 @@ compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
 repositories {
     mavenCentral()
     jcenter()
-    maven { url "https://dl.bintray.com/kotlin/ktor" }
 }
 
 test {
@@ -85,7 +86,6 @@ artifacts {
 dependencies {
     implementation deps.kotlin.stdlib.jdk
     implementation deps.kotlin.reflect
-    implementation deps.kotlin.coroutines
     implementation deps.logback
     implementation deps.exposed
     implementation deps.koin.core

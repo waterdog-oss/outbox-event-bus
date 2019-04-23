@@ -3,7 +3,7 @@ package mobi.waterdog.eventbus.persistence.sql
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.persistence.LocalEventCache
-import java.time.Instant
+import org.joda.time.Instant
 import java.util.UUID
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -13,16 +13,15 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
 
     private val pendingEvents: BlockingQueue<Event> = LinkedBlockingQueue()
 
-    override suspend fun markAsDelivered(eventId: Long) {
-
+    override fun markAsDelivered(eventId: Long) {
         databaseConnection.query {
             val event = EventDAO[eventId]
             event.delivered = true
-            event.sendTimestamp = Instant.now().toString()
+            event.sendTimestamp = Instant.now().toDateTime()
         }
     }
 
-    override suspend fun getEvent(eventId: Long): Event? {
+    override fun getEvent(eventId: Long): Event? {
         return databaseConnection.query {
             EventDAO.find { EventTable.id eq eventId }.firstOrNull()?.toFullModel()
         }
@@ -32,13 +31,13 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         return pendingEvents
     }
 
-    override suspend fun storeEvent(eventInput: EventInput): Event {
+    override fun storeEvent(eventInput: EventInput): Event {
         return databaseConnection.query {
             val evt = EventDAO.new {
                 topic = eventInput.topic
                 delivered = false
                 uuid = UUID.randomUUID().toString()
-                storedTimestamp = Instant.now().toString()
+                storedTimestamp = Instant.now().toDateTime()
                 msgType = eventInput.msgType
                 mimeType = eventInput.mimeType
                 payload = SerialBlob(eventInput.payload)

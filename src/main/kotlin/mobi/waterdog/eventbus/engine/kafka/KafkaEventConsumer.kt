@@ -1,39 +1,62 @@
 package mobi.waterdog.eventbus.engine.kafka
 
-import com.fasterxml.jackson.module.kotlin.readValue
 import io.reactivex.BackpressureStrategy
 import io.reactivex.Flowable
-import io.reactivex.FlowableEmitter
 import mobi.waterdog.eventbus.EventConsumer
+import mobi.waterdog.eventbus.engine.kafka.modes.AutoCommitStreamStrategy
+import mobi.waterdog.eventbus.engine.kafka.modes.BatchStreamStrategy
+import mobi.waterdog.eventbus.engine.kafka.modes.MessageStreamStrategy
 import mobi.waterdog.eventbus.model.EventOutput
+import mobi.waterdog.eventbus.model.StreamMode
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.KafkaConsumer
-import java.time.Duration
 import java.util.Properties
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class KafkaEventConsumer(private val props: Properties) : EventConsumer {
 
-    private val subscribers: MutableMap<String, ConcurrentHashMap<String, Consumer<String, String>>> =
+    private val syncInterval = props["consumer.syncInterval"]?.toString()?.toLong() ?: 100L
+    private val streamMode = props["consumer.streamMode"]?.let {
+        StreamMode.valueOf(it.toString())
+    } ?: StreamMode.AutoCommit
+    private val backpressureStrategy = props["consumer.backpressureStrategy"]?.let {
+        BackpressureStrategy.valueOf(it.toString())
+    } ?: BackpressureStrategy.ERROR
+    private val isPollLoopStarted = AtomicBoolean(true)
+
+    private
+    val subscribers: MutableMap<String, ConcurrentHashMap<String, Consumer<String, String>>> =
         ConcurrentHashMap()
 
     override fun stream(topicName: String, consumerId: String): Flowable<EventOutput> {
         val consumer = subscribe(topicName, consumerId)
-        return createFlowable(BackpressureStrategy.ERROR) { emitter ->
-            while (true) {
-                val syncInterval: Long =
-                    if (props["consumer.syncInterval"] != null) props["consumer.syncInterval"].toString().toLong() else 100L
-                val records = consumer.poll(Duration.ofMillis(syncInterval))
-                for (record in records) {
-                    val kafkaEvent: KafkaEvent = JsonSettings.mapper.readValue(record.value())
-                    emitter.onNext(kafkaEvent.toEventOutput())
-                }
-            }
+        return when (streamMode) {
+            StreamMode.AutoCommit -> AutoCommitStreamStrategy(props).stream(
+                consumer,
+                syncInterval,
+                isPollLoopStarted,
+                backpressureStrategy
+            )
+            StreamMode.EndOfBatchCommit -> BatchStreamStrategy(props).stream(
+                consumer,
+                syncInterval,
+                isPollLoopStarted,
+                backpressureStrategy
+            )
+            StreamMode.MessageCommit -> MessageStreamStrategy(props).stream(
+                consumer,
+                syncInterval,
+                isPollLoopStarted,
+                backpressureStrategy
+            )
         }
     }
 
     override fun unsubscribe(topicName: String, consumerId: String) {
-        subscribers[topicName]?.remove(consumerId)
+        isPollLoopStarted.set(false)
+        val consumer = subscribers[topicName]?.remove(consumerId)
+        consumer?.wakeup()
     }
 
     override fun listSubscribers(topicName: String): List<String> {
@@ -42,9 +65,6 @@ internal class KafkaEventConsumer(private val props: Properties) : EventConsumer
             else -> subscribers[topicName]!!.keys().toList()
         }
     }
-
-    private fun createFlowable(strategy: BackpressureStrategy, onSubscribe: (FlowableEmitter<EventOutput>) -> Unit) =
-        Flowable.create(onSubscribe, strategy)
 
     private fun subscribe(topicName: String, subscriberId: String): Consumer<String, String> {
         if (subscribers[topicName] == null) {

@@ -45,16 +45,15 @@ internal class PersistentEventWriter(
     }
 
     override fun send(eventInput: EventInput): Boolean {
-        return runBlocking { sendAndWaitForAck(eventInput) }
+        return sendAndWaitForAck(eventInput)
     }
 
-    private suspend fun sendAndWaitForAck(eventInput: EventInput): Boolean {
+    private fun sendAndWaitForAck(eventInput: EventInput): Boolean {
         return try {
             localEventCache.storeEvent(eventInput)
             true
         } catch (ex: Exception) {
-            log.error("Event storage failed${ex.message}")
-            ex.printStackTrace()
+            log.error("Event storage failed${ex.message}", ex)
             false
         }
     }
@@ -68,8 +67,7 @@ internal class PersistentEventWriter(
                 eventEngine.send(item)
                 sentItemsToSync.put(item)
             } catch (ex: Exception) {
-                log.error("Event sync ${item.id} failed${ex.message}")
-                ex.printStackTrace()
+                log.error("Event sync ${item.id} failed${ex.message}", ex)
             }
         }
     }
@@ -82,7 +80,7 @@ internal class PersistentEventWriter(
                 var synced = false
                 for (i in retries downTo 0) {
                     try {
-                        runBlocking { localEventCache.markAsDelivered(item.id) }
+                        localEventCache.markAsDelivered(item.id)
                         synced = true
                         break
                     } catch (ex: EntityNotFoundException) {

@@ -1,0 +1,66 @@
+group = 'mobi.watedog.eventbus.example'
+version = '0.10'
+
+buildscript {
+    ext.versions = [
+            "kotlin" : "1.3.21",
+            "koin"   : "1.0.2",
+            "jackson": "2.9.8"
+    ]
+
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin}"
+        classpath "gradle.plugin.org.jlleitschuh.gradle:ktlint-gradle:5.0.0"
+    }
+}
+
+apply plugin: "application"
+apply plugin: "kotlin"
+apply plugin: "org.jlleitschuh.gradle.ktlint"
+
+compileKotlin.kotlinOptions.jvmTarget = "1.8"
+compileTestKotlin.kotlinOptions.jvmTarget = "1.8"
+
+repositories {
+    mavenCentral()
+    jcenter()
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+applicationDefaultJvmArgs = ["-Xms1024m",
+                             "-Xmx2048m",
+                             "-XX:+UseStringDeduplication",
+                             "-XX:+UseStringCache",
+                             "-XX:+OptimizeStringConcat",
+                             "-XX:+UnlockExperimentalVMOptions",
+                             "-Xdebug",
+                             "-Xrunjdwp:server=y,transport=dt_socket,address=5005,suspend=n",
+                             "-XX:+UseCGroupMemoryLimitForHeap"]
+
+mainClassName = "mobi.waterdog.eventbus.example.consumer.ExampleConsumerKt"
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions.kotlin}"
+    implementation "org.jetbrains.kotlin:kotlin-reflect:${versions.kotlin}"
+    implementation "ch.qos.logback:logback-classic:1.2.3"
+    implementation "org.jetbrains.exposed:exposed:0.13.6"
+    implementation "com.h2database:h2:1.4.197"
+    implementation "com.zaxxer:HikariCP:2.7.8"
+    implementation "org.koin:koin-core:${versions.koin}"
+    implementation "org.koin:koin-core-ext:${versions.koin}"
+    implementation "io.reactivex.rxjava2:rxjava:2.2.8"
+    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+    implementation "com.fasterxml.jackson.module:jackson-module-kotlin:${versions.jackson}"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${versions.jackson}"
+    implementation "io.reactivex.rxjava2:rxjava:2.2.8"
+    implementation name: 'ktor-event-bus-0.10'
+    runtime 'org.apache.kafka:kafka-clients:2.2.0'
+}

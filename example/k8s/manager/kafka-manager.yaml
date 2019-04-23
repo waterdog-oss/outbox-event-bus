@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-manager
+  labels:
+    app: kafka-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-manager
+  template:
+    metadata:
+      labels:
+        app: kafka-manager
+    spec:
+      containers:
+        - name: kafka-manager
+          image: hlebalbau/kafka-manager:stable
+          ports:
+            - containerPort: 9000
+          env:
+            - name: ZK_HOSTS
+              value: zookeeper-service:2181
+            - name: APPLICATION_SECRET
+              value: "random-secret"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-manager-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: kafka-manager
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
