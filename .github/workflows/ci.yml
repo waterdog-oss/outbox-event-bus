@@ -10,8 +10,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: gradle@4.10-jdk8
     
     steps:
     - uses: actions/checkout@master
-    - uses: MrRamych/gradle-actions/openjdk-8@2.1
+
+    - name: Run tests
+      run: gradle test
