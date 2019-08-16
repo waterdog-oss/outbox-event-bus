@@ -19,5 +19,9 @@ jobs:
         java-version: '8.x'
         architecture: x64
 
+    - name: Check running directory
+      run: pwd -P
+
     - name: Run tests
       run: ./gradlew test
+      g
