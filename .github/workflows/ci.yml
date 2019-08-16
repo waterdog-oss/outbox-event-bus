@@ -19,5 +19,5 @@ jobs:
         java-version: '8.x'
         architecture: x64
     
-    - name: Check java version
-      run: java -version
+    - name: Run tests
+      run: ./gradlew test
