@@ -22,5 +22,8 @@ jobs:
     - name: Check running directory
       run: pwd -P
 
+    - name: Check gradle wrapper jar
+      run: cd gradle/wrapper && ls
+
     - name: Run tests
       run: ./gradlew test
