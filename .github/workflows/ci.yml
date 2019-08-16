@@ -10,10 +10,24 @@ on:
 
 jobs:
   build:
-    runs-on: gradle@4.10-jdk8
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@master
+
+    - uses: actions/setup-java@v1
+        with:
+          java-version: '8.x'
+          architecture: x64
+
+    - name: Instal sdkman
+      run: curl -s "https://get.sdkman.io" | bash
+
+    - name: Source exec
+      run: source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+    - name: Install gradle
+      run: sdk install gradle 4.8
 
     - name: Run tests
       run: gradle test
