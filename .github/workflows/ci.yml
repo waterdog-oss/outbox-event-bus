@@ -14,10 +14,4 @@ jobs:
     
     steps:
     - uses: actions/checkout@master
-    - uses: actions/setup-java@v1
-      with:
-        java-version: '8.x'
-        architecture: x64
-    
-    - name: Run tests
-      run: ./gradlew test
+    - uses: MrRamych/gradle-actions/openjdk-8@2.1
