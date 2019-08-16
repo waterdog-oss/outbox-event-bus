@@ -19,14 +19,5 @@ jobs:
         java-version: '8.x'
         architecture: x64
 
-    - name: Instal sdkman
-      run: curl -s "https://get.sdkman.io" | bash
-
-    - name: Source exec
-      run: source "$HOME/.sdkman/bin/sdkman-init.sh"
-
-    - name: Install gradle
-      run: sdk install gradle 4.8
-
     - name: Run tests
-      run: gradle test
+      run: ./gradlew test
