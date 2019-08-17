@@ -12,29 +12,36 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.koin.dsl.module.module
-import org.koin.standalone.StandAloneContext.startKoin
-import org.koin.standalone.StandAloneContext.stopKoin
-import org.koin.standalone.inject
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
 import org.koin.test.KoinTest
+import org.koin.test.inject
 import javax.sql.DataSource
 
-class EventBusTest : KoinTest {
+class EventBusTest: KoinTest {
     @Suppress("unused")
     @BeforeAll
     fun beforeClass() {
-        startKoin(listOf(module {
-            single<DataSource> {
-                HikariDataSource(HikariConfig().apply {
-                    driverClassName = "org.h2.Driver"
-                    jdbcUrl = "jdbc:h2:mem:test"
-                    maximumPoolSize = 5
-                    isAutoCommit = false
-                    transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-                    validate()
-                })
-            }
-        }, eventBusKoinModule()))
+        startKoin {
+            modules(
+                listOf(
+                    module {
+                        single<DataSource> {
+                            HikariDataSource(HikariConfig().apply {
+                                driverClassName = "org.h2.Driver"
+                                jdbcUrl = "jdbc:h2:mem:test"
+                                maximumPoolSize = 5
+                                isAutoCommit = false
+                                transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+                                validate()
+                            })
+                        }
+                    },
+                    eventBusKoinModule()
+                )
+            )
+        }
     }
 
     private val targetTopic1 = "MyTopic1"
@@ -45,6 +52,7 @@ class EventBusTest : KoinTest {
 
     @AfterEach
     fun cleanup() {
+
         listOf(targetTopic1, targetTopic2).forEach { topic ->
             eventConsumer.listSubscribers(topic).forEach { consumerId ->
                 eventConsumer.unsubscribe(topic, consumerId)
