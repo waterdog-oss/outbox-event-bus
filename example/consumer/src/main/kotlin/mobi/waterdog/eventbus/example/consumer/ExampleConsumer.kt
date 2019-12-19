@@ -10,10 +10,10 @@ import mobi.waterdog.eventbus.EventConsumer
 import mobi.waterdog.eventbus.eventBusKoinModule
 import mobi.waterdog.eventbus.model.EventOutput
 import mobi.waterdog.eventbus.model.StreamMode
-import org.koin.dsl.module.module
-import org.koin.standalone.KoinComponent
-import org.koin.standalone.StandAloneContext
-import org.koin.standalone.inject
+import org.koin.core.KoinComponent
+import org.koin.core.context.startKoin
+import org.koin.core.inject
+import org.koin.dsl.module
 import org.slf4j.LoggerFactory
 import java.util.Properties
 import java.util.Random
@@ -155,7 +155,7 @@ class ByzantineConsumer(
 }
 
 fun main() {
-    StandAloneContext.startKoin(
+    startKoin {
         listOf(
             module {
                 single<DataSource> {
@@ -171,7 +171,7 @@ fun main() {
             },
             eventBusKoinModule()
         )
-    )
+    }
 
     val server = "kafka-service:9092"
     val topic = "test-0.10"
