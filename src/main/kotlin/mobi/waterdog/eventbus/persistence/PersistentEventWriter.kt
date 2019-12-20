@@ -8,7 +8,7 @@ import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.EventEngine
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
-import org.jetbrains.exposed.exceptions.EntityNotFoundException
+import org.jetbrains.exposed.dao.exceptions.EntityNotFoundException
 import org.slf4j.LoggerFactory
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread

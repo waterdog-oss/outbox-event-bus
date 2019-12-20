@@ -5,6 +5,7 @@ import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.LongIdTable
+import org.jetbrains.exposed.sql.datetime
 
 internal object EventTable : LongIdTable("recorded_events") {
     val topic = varchar("topic", 255)
@@ -39,7 +40,7 @@ internal class EventDAO(id: EntityID<Long>) : LongEntity(id) {
             sendTimestamp?.let { java.time.Instant.ofEpochMilli(it.toInstant().millis) },
             msgType,
             mimeType,
-            payload.binaryStream.readBytes()
+            payload.bytes
         )
     }
 }
