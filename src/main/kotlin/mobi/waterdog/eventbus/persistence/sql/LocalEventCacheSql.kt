@@ -3,11 +3,11 @@ package mobi.waterdog.eventbus.persistence.sql
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.persistence.LocalEventCache
+import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.joda.time.Instant
 import java.util.UUID
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
-import javax.sql.rowset.serial.SerialBlob
 
 internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnection) : LocalEventCache {
 
@@ -40,7 +40,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
                 storedTimestamp = Instant.now().toDateTime()
                 msgType = eventInput.msgType
                 mimeType = eventInput.mimeType
-                payload = SerialBlob(eventInput.payload)
+                payload = ExposedBlob(eventInput.payload)
             }.toFullModel()
 
             this.pendingEvents.put(evt)
