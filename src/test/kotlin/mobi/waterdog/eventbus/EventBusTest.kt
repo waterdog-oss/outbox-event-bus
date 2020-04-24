@@ -19,7 +19,7 @@ import org.koin.test.KoinTest
 import org.koin.test.inject
 import javax.sql.DataSource
 
-class EventBusTest: KoinTest {
+class EventBusTest : KoinTest {
     @Suppress("unused")
     @BeforeAll
     fun beforeClass() {
