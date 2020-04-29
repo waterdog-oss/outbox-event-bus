@@ -15,16 +15,13 @@ import org.koin.core.KoinComponent
 import org.koin.core.inject
 import java.util.Properties
 import java.util.UUID
-import javax.sql.DataSource
 
 class OrderService(private val topic: String) : KoinComponent {
 
-    private val dataSource: DataSource by inject()
     private val ebf: EventBusFactory by inject()
-    private val dbc: DatabaseConnection
+    private val dbc: DatabaseConnection by inject()
 
     init {
-        dbc = DatabaseConnection(dataSource)
         dbc.query {
             SchemaUtils.create(OrderTable)
             SchemaUtils.create(LineItemTable)
@@ -48,13 +45,12 @@ class OrderService(private val topic: String) : KoinComponent {
     }
 
     private fun createOrderImpl(customer: String, lineItems: List<LineItem>): Order = dbc.query {
-
         require(lineItems.isNotEmpty()) { "Line items must not be empty" }
         val newOrderId = OrderTable.insertAndGetId {
             it[customerName] = customer
         }
 
-        val lineItemRepository = LineItemRepository()
+        val lineItemRepository = LineItemRepository(dbc)
         lineItems.forEach { lineItem ->
             lineItemRepository.insert(newOrderId.value, lineItem)
         }
@@ -67,7 +63,6 @@ class OrderService(private val topic: String) : KoinComponent {
     }
 
     private fun createOrderEvilImpl(customer: String, lineItems: List<LineItem>): Order = dbc.query {
-
         require(lineItems.isNotEmpty()) { "Line items must not be empty" }
         val newOrderId = OrderTable.insertAndGetId {
             it[customerName] = customer
@@ -78,7 +73,7 @@ class OrderService(private val topic: String) : KoinComponent {
         val eventPayload = JsonSettings.mapper.writeValueAsString(order).toByteArray()
         eventProducer.send(EventInput(topic, "orderCreated", "application/json", eventPayload))
 
-        val lineItemRepository = LineItemRepository()
+        val lineItemRepository = LineItemRepository(dbc)
         lineItems.forEach { lineItem ->
             lineItemRepository.insert(newOrderId.value, lineItem)
         }

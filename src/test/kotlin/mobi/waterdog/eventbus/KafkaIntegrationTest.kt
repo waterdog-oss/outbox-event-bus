@@ -7,13 +7,18 @@ import mobi.waterdog.eventbus.containers.PostgreSQLTestContainer
 import mobi.waterdog.eventbus.example.app.LineItem
 import mobi.waterdog.eventbus.example.app.Order
 import mobi.waterdog.eventbus.example.app.OrderService
+import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.model.EventOutput
+import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
+import mobi.waterdog.eventbus.persistence.sql.EventTable
 import org.amshove.kluent.`should be null`
+import org.amshove.kluent.`should equal`
 import org.amshove.kluent.`should not be null`
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
 import org.awaitility.Awaitility.await
+import org.jetbrains.exposed.sql.selectAll
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
@@ -25,7 +30,6 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.inject
-import org.koin.core.logger.Level
 import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -45,23 +49,18 @@ class KafkaIntegrationTest : KoinTest {
 
     @BeforeAll
     fun initContext() {
-        println(PostgreSQLTestContainer.instance.containerId)
-        println(KafkaTestContainer.instance.containerId)
-        println("Init Koin")
-
         startKoin {
-            printLogger(Level.DEBUG)
             modules(
                 listOf(
                     module {
                         single<DataSource> {
                             val config = HikariConfig()
-                            config.driverClassName = "org.postgresql.Driver"
+                            config.driverClassName = PostgreSQLTestContainer.instance.driverClassName
                             config.jdbcUrl = PostgreSQLTestContainer.instance.jdbcUrl
                             config.username = PostgreSQLTestContainer.instance.username
                             config.password = PostgreSQLTestContainer.instance.password
                             config.maximumPoolSize = 10
-                            config.isAutoCommit = true
+                            config.isAutoCommit = false
                             config.transactionIsolation = "TRANSACTION_REPEATABLE_READ"
                             config.leakDetectionThreshold = 10000
                             config.poolName = "tests"
@@ -70,6 +69,7 @@ class KafkaIntegrationTest : KoinTest {
                             HikariDataSource(config)
                         }
                     },
+                    databaseConnectionModule(),
                     eventBusKoinModule()
                 )
             )
@@ -86,7 +86,7 @@ class KafkaIntegrationTest : KoinTest {
 
         @ParameterizedTest
         @CsvSource("1,1", "1,5", "5,1", "5,5")
-        fun `Many producers many consumers`(numConsumers: Int, numProducers: Int) {
+        fun `Many consumers and many producers`(numConsumers: Int, numProducers: Int) {
             // Given: number of concurrent consumers
             val received = ConcurrentHashMap<String, Int>()
             val topic = UUID.randomUUID().toString()
@@ -151,6 +151,12 @@ class KafkaIntegrationTest : KoinTest {
                 received.set(true)
             }
 
+            // And the old count of events in the database
+            val dbc: DatabaseConnection by inject()
+            val oldCount = dbc.query {
+                EventTable.selectAll().count()
+            }
+
             // And: a block of code that throws an exception due to bad data
             var newOrder: Order? = null
             assertThrows<IllegalArgumentException> {
@@ -161,10 +167,11 @@ class KafkaIntegrationTest : KoinTest {
             // Then: The expected item is created
             newOrder.`should be null`()
 
-            // And: the event is received
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .untilFalse(received)
+            // And: the number of events remains the same
+            val updatedCount = dbc.query {
+                EventTable.selectAll().count()
+            }
+            updatedCount `should equal` oldCount
         }
 
         @Test
@@ -175,21 +182,40 @@ class KafkaIntegrationTest : KoinTest {
             createConsumerThread(topic) { _, _ ->
                 received.set(true)
             }
+            val service = OrderService(topic)
+
+            // And the old count of events in the database
+            val dbc: DatabaseConnection by inject()
+            val oldCount = dbc.query {
+                EventTable.selectAll().count()
+            }
+
+            val oldOrders = dbc.query {
+                OrderTable.selectAll().count()
+            }
 
             // And: a block of code that throws an exception due to bad data
             var newOrder: Order? = null
             assertThrows<IllegalArgumentException> {
-                val service = OrderService(topic)
-                newOrder = service.createOrder("ACME Inc.", listOf(LineItem("X", 0)), isEvil = true)
+                newOrder = service.createOrder(
+                    "ACME Inc.", listOf(
+                        LineItem("X", 1),
+                        LineItem("Y", 0)
+                    ), isEvil = true
+                )
             }
 
             // Then: The expected item is created
             newOrder.`should be null`()
+            val updatedCount = dbc.query {
+                EventTable.selectAll().count()
+            }
 
-            // And: the event is received
-            await()
-                .atMost(10, TimeUnit.SECONDS)
-                .untilFalse(received)
+            val updateOrders = dbc.query {
+                OrderTable.selectAll().count()
+            }
+            updateOrders `should equal` oldOrders
+            updatedCount `should equal` oldCount
         }
     }
 
@@ -215,7 +241,7 @@ class KafkaIntegrationTest : KoinTest {
         }
 
         await()
-            .atMost(10, TimeUnit.SECONDS)
+            .atMost(60, TimeUnit.SECONDS)
             .untilTrue(isReady)
     }
 
@@ -230,7 +256,6 @@ class KafkaIntegrationTest : KoinTest {
                 val payload =
                     """{"timestamp": "${Instant.now()}", "producerId": "0", "messageId": "$n"}""".toByteArray()
                 producer.send(EventInput(topic, "message", "application/json", payload))
-                println("SENDING: $topic / $n")
             }
         }
 
