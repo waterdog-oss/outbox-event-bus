@@ -20,13 +20,6 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         }
     }
 
-    override fun markAsErrored(eventId: Long) {
-        databaseConnection.query {
-            val event = EventDAO[eventId]
-            event.errored = false
-        }
-    }
-
     override fun getEvent(eventId: Long): Event? {
         return databaseConnection.query {
             EventDAO.find { EventTable.id eq eventId }.firstOrNull()?.toFullModel()
@@ -35,7 +28,7 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
 
     override fun fetchEventsReadyToSend(limit: Int): List<Event> {
         return databaseConnection.query {
-            EventDAO.find { (EventTable.delivered eq false) and (EventTable.errored eq false) }
+            EventDAO.find { EventTable.delivered eq false }
                 .limit(limit)
                 .map { it.toFullModel() }
         }

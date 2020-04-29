@@ -6,7 +6,6 @@ import java.util.UUID
 internal data class Event(
     val id: Long,
     val delivered: Boolean,
-    val errored: Boolean,
     val topic: String,
     val uuid: String,
     val storeTimestamp: Instant,

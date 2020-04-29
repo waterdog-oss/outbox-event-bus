@@ -9,7 +9,6 @@ import org.jetbrains.exposed.dao.LongIdTable
 internal object EventTable : LongIdTable("recorded_events") {
     val topic = varchar("topic", 255)
     val delivered = bool("delivered")
-    val errored = bool("errored").default(false)
     val uuid = varchar("uuid", 36).uniqueIndex()
     val storedTimestamp = datetime("stored_timestamp")
     val sendTimestamp = datetime("send_timestamp").nullable()
@@ -29,13 +28,11 @@ internal class EventDAO(id: EntityID<Long>) : LongEntity(id) {
     var msgType by EventTable.msgType
     var mimeType by EventTable.mimeType
     var payload by EventTable.payload
-    var errored by EventTable.errored
 
     fun toFullModel(): Event {
         return Event(
             id.value,
             delivered,
-            errored,
             topic,
             uuid,
             java.time.Instant.ofEpochMilli(storedTimestamp.toInstant().millis),

@@ -11,5 +11,4 @@ internal interface LocalEventCache {
     fun fetchEventsReadyToSend(limit: Int): List<Event>
     fun fetchCleanableEvents(duration: ReadableDuration, limit: Int): List<Event>
     fun deleteEvent(eventId: Long)
-    fun markAsErrored(eventId: Long)
 }

@@ -55,6 +55,12 @@ in the future.
     * MessageCommit: acknowledges every message individually
 * _consumer.syncInterval_: Number of millis between message queue polls
 * _consumer.backpressureStrategy_: How the reactive stream deals with backpressure. See: io.reactivex.BackpressureStrategy
+* _producer.event.cleanup.intervalInSeconds_: How many seconds an event is retained after itn has been published. Default 7 days
+### Failure model
+
+The event relay will keep on trying to send events that fails delivery, while also writing a messasge with alert level ERROR indicating
+that the failure has occurred.
+
 
 ### Caveats
 
@@ -172,11 +178,12 @@ consumer.stream(topic, consumerId)
 ```
 
 ## Roadmap
-* Provide metrics;
-* Add test container tests for integration testing with Kafka;
+* Provide metrics
+* Separate event relay thread from producer
 * Remove Koin dependency
 * Remove the dependency from [Exposed](https://github.com/JetBrains/Exposed), and allow the operator to define his own local event store with whatever technology
-that suits his needs;
+that suits his needs
+* Add support for sending messages with keys!
 * We are using JSON as a serialization mechanism. Allow the operators to provide their own
 serialization mechanism so that other formats like protobufs can be used;
 * Cleanup events that have been processed and are older than a given threshold;

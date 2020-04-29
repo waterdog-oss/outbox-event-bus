@@ -91,7 +91,7 @@ class EventBusTest : KoinTest {
                 "application/json",
                 jsonMsg.toByteArray()
             )
-            eventProducer.sendAsync(event)
+            eventProducer.send(event)
         }
     }
 

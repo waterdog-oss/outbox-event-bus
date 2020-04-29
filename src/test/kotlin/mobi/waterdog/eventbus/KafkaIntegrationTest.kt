@@ -2,6 +2,8 @@ package mobi.waterdog.eventbus
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.containers.KafkaTestContainer
 import mobi.waterdog.eventbus.containers.PostgreSQLTestContainer
 import mobi.waterdog.eventbus.example.app.LineItem
@@ -10,16 +12,20 @@ import mobi.waterdog.eventbus.example.app.OrderService
 import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.model.EventOutput
+import mobi.waterdog.eventbus.model.StreamMode
 import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
 import mobi.waterdog.eventbus.persistence.sql.EventTable
+import org.amshove.kluent.`should be less than`
 import org.amshove.kluent.`should be null`
 import org.amshove.kluent.`should equal`
 import org.amshove.kluent.`should not be null`
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
 import org.awaitility.Awaitility.await
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -78,22 +84,30 @@ class KafkaIntegrationTest : KoinTest {
 
     @AfterAll
     fun stopContext() {
+        stopKoin()
+    }
+
+    @AfterEach
+    fun cleanEventSenders() {
         val ebf: EventBusFactory by inject()
         ebf.shutdown()
-        stopKoin()
     }
 
     @Nested
     inner class NonTransactionalIntegrationTest {
 
         @ParameterizedTest
-        @CsvSource("1,1", "1,5", "5,1", "5,5")
-        fun `Many consumers and many producers`(numConsumers: Int, numProducers: Int) {
+        @CsvSource(
+            "1,1,AutoCommit", "1,5,AutoCommit", "5,1,AutoCommit", "5,5,AutoCommit",
+            "1,1,EndOfBatchCommit", "1,5,EndOfBatchCommit", "5,1,EndOfBatchCommit", "5,5,EndOfBatchCommit",
+            "1,1,MessageCommit", "1,5,MessageCommit", "5,1,MessageCommit", "5,5,MessageCommit"
+        )
+        fun `Many consumers and many producers`(numConsumers: Int, numProducers: Int, streamMode: StreamMode) {
             // Given: number of concurrent consumers
             val received = ConcurrentHashMap<String, Int>()
             val topic = UUID.randomUUID().toString()
             repeat(numConsumers) {
-                createConsumerThread(topic) { consumerGroupId, count: Int ->
+                createConsumerThread(topic, streamMode = streamMode) { consumerGroupId, count: Int ->
                     received[consumerGroupId] = count
                 }
             }
@@ -112,6 +126,48 @@ class KafkaIntegrationTest : KoinTest {
                         received.map { it.value }
                             .reduce { acc, value -> acc + value } == (numProducers * numConsumers * numMessagesPerProducer)
                 }
+        }
+    }
+
+    @Nested
+    inner class CleanupLoopTest {
+
+        @Test
+        fun `Cleanup time is respected`() {
+            // Given: A producer sending a bunch of messages
+            val numSecs = 3600
+            val producer = createProducer(numSecs)
+            val testTopic = UUID.randomUUID().toString()
+            producer.send(EventInput(testTopic, "cleanup_test", "application/json", "[]".toByteArray()))
+
+            // When: Enough time has elapsed since the last message was sent
+            val dbc: DatabaseConnection by inject()
+            val currentCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+            currentCount `should equal` 1
+
+            // Then: The message is retained even after some time has elapsed
+            runBlocking { delay(10000L) }
+            val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+            updatedCount `should equal` currentCount
+        }
+
+        @Test
+        fun `Sent events are cleaned up according to the policy defined in the configuration`() {
+            // Given: A producer sending a bunch of messages
+            val numSecs = 5
+            val producer = createProducer(numSecs)
+            val testTopic = UUID.randomUUID().toString()
+            producer.send(EventInput(testTopic, "cleanup_test", "application/json", "[]".toByteArray()))
+
+            // When: Enough time has elapsed since the last message was sent
+            val dbc: DatabaseConnection by inject()
+            val currentCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+            currentCount `should equal` 1
+
+            // Then: The message is deleted after the time has elapsed
+            runBlocking { delay((numSecs + 1) * 1000L) }
+            val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+            updatedCount `should be less than` currentCount
         }
     }
 
@@ -227,21 +283,20 @@ class KafkaIntegrationTest : KoinTest {
     private fun createConsumerThread(
         topic: String,
         consumerGroup: String = UUID.randomUUID().toString(),
+        streamMode: StreamMode = StreamMode.AutoCommit,
         handler: (consumerGroup: String, numReceived: Int) -> Unit
     ) {
         val isReady = AtomicBoolean(false)
         val numReceived = AtomicInteger(0)
         thread {
-            val stream = createConsumer().stream(topic, consumerGroup)
+            val stream = createConsumer(streamMode).stream(topic, consumerGroup)
 
             stream.doOnError { it.printStackTrace() }
                 .onErrorReturnItem(EventOutput.buildError())
                 .doOnSubscribe {
                     isReady.set(true)
-                    println("ON SUBSCRIBE!!!!")
                 }
                 .subscribe {
-                    println("GOT EVENT")
                     handler(consumerGroup, numReceived.incrementAndGet())
                 }
         }
@@ -269,33 +324,43 @@ class KafkaIntegrationTest : KoinTest {
             .untilTrue(isReady)
     }
 
-    private fun createConsumer(): EventConsumer {
+    private fun createConsumer(streamMode: StreamMode): EventConsumer {
         val props = Properties()
         //General cluster settings and config
         props["bootstrap.servers"] = KafkaTestContainer.instance.bootstrapServers
-        props["enable.auto.commit"] = "true"
-        props["auto.commit.interval.ms"] = "1000"
         props["heartbeat.interval.ms"] = "3000"
         props["session.timeout.ms"] = "10000"
         props["auto.offset.reset"] = "earliest"
-        //Kafka serialization config
         props["key.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
         props["value.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
         //Event bus property that controls the sync loop and the auto-commit mode
-        props["consumer.syncInterval"] = "1000"
-        props["consumer.streamMode"] = "AutoCommit"
 
+        if (streamMode == StreamMode.AutoCommit) {
+            props["enable.auto.commit"] = "true"
+            props["auto.commit.interval.ms"] = "1000"
+            props["consumer.syncInterval"] = "1000"
+            props["consumer.streamMode"] = "AutoCommit"
+        } else if (streamMode == StreamMode.EndOfBatchCommit) {
+            props["enable.auto.commit"] = "false"
+            props["consumer.streamMode"] = "EndOfBatchCommit"
+        } else if (streamMode == StreamMode.MessageCommit) {
+            props["enable.auto.commit"] = "false"
+            props["consumer.streamMode"] = "MessageCommit"
+        }
         val ebf: EventBusFactory by inject()
         ebf.setup(EventBackend.Kafka)
         return ebf.getConsumer(props)
     }
 
-    private fun createProducer(): EventProducer {
+    private fun createProducer(cleanupIntervalSeconds: Int = 0): EventProducer {
         val props = Properties()
         props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = KafkaTestContainer.instance.bootstrapServers
         props[ProducerConfig.CLIENT_ID_CONFIG] = UUID.randomUUID().toString()
         props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
         props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
+        if (cleanupIntervalSeconds > 0) {
+            props["producer.event.cleanup.intervalInSeconds"] = "$cleanupIntervalSeconds"
+        }
 
         val ebf: EventBusFactory by inject()
         ebf.setup(EventBackend.Kafka)

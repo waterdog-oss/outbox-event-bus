@@ -4,7 +4,8 @@ import mobi.waterdog.eventbus.engine.kafka.KafkaEngine
 import mobi.waterdog.eventbus.engine.kafka.KafkaEventConsumer
 import mobi.waterdog.eventbus.engine.local.LocalEventEngine
 import mobi.waterdog.eventbus.persistence.LocalEventCache
-import mobi.waterdog.eventbus.persistence.PersistentEventWriter
+import mobi.waterdog.eventbus.persistence.EventRelay
+import org.joda.time.Duration
 import java.util.Properties
 
 private interface EventBusProvider {
@@ -12,6 +13,8 @@ private interface EventBusProvider {
     fun getConsumer(props: Properties = Properties()): EventConsumer
     fun shutdown()
 }
+
+private const val CLEANUP_INTERVAL_SECONDS_PROP = "producer.event.cleanup.intervalInSeconds"
 
 internal class EventBusFactoryImpl(private val localEventCache: LocalEventCache) : EventBusFactory {
 
@@ -47,19 +50,33 @@ internal class InMemoryBus(private val localEventCache: LocalEventCache) : Event
 
     val engine: LocalEventEngine = LocalEventEngine()
 
-    override fun getProducer(props: Properties): EventProducer = PersistentEventWriter(localEventCache, engine)
+    override fun getProducer(props: Properties): EventProducer {
+        val cleanUpAfter: Duration =
+            props.getProperty(CLEANUP_INTERVAL_SECONDS_PROP)?.toLong()?.let { Duration.standardSeconds(it) }
+                ?: Duration.standardDays(7)
+        return EventRelay(localEventCache, engine, cleanUpAfter)
+    }
+
     override fun getConsumer(props: Properties): EventConsumer = engine
-    override fun shutdown() { PersistentEventWriter.shutdown() }
+    override fun shutdown() {
+        EventRelay.shutdown()
+    }
 }
 
 internal class KafkaBus(private val localEventCache: LocalEventCache) : EventBusProvider {
+
     override fun getProducer(props: Properties): EventProducer {
-        return PersistentEventWriter(localEventCache, KafkaEngine(props))
+        val cleanUpAfter: Duration =
+            props.getProperty(CLEANUP_INTERVAL_SECONDS_PROP)?.toLong()?.let { Duration.standardSeconds(it) }
+                ?: Duration.standardDays(7)
+        return EventRelay(localEventCache, KafkaEngine(props), cleanUpAfter)
     }
 
     override fun getConsumer(props: Properties): EventConsumer {
         return KafkaEventConsumer(props)
     }
 
-    override fun shutdown() { PersistentEventWriter.shutdown() }
+    override fun shutdown() {
+        EventRelay.shutdown()
+    }
 }
