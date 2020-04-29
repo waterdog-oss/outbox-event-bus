@@ -45,6 +45,13 @@ class EventBusTest : KoinTest {
         }
     }
 
+    @Suppress("unused")
+    @AfterAll
+    fun afterAll() {
+        ebf.shutdown()
+        stopKoin()
+    }
+
     private val targetTopic1 = "MyTopic1"
     private val targetTopic2 = "MyTopic2"
     private val ebf by inject<EventBusFactory>()
@@ -117,11 +124,5 @@ class EventBusTest : KoinTest {
         }
 
         count `should equal` n
-    }
-
-    @Suppress("unused")
-    @AfterAll
-    fun afterAll() {
-        stopKoin()
     }
 }

@@ -25,6 +25,10 @@ internal class PersistentEventWriter(
     companion object {
         private val log = LoggerFactory.getLogger(PersistentEventWriter::class.java)
         private val eventWriterLoopStarted = AtomicBoolean(false)
+
+        fun shutdown() {
+            eventWriterLoopStarted.set(false)
+        }
     }
 
     init {

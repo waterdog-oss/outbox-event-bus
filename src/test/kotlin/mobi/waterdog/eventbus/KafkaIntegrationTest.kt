@@ -78,6 +78,8 @@ class KafkaIntegrationTest : KoinTest {
 
     @AfterAll
     fun stopContext() {
+        val ebf: EventBusFactory by inject()
+        ebf.shutdown()
         stopKoin()
     }
 
@@ -126,7 +128,8 @@ class KafkaIntegrationTest : KoinTest {
             }
 
             // And: a block of code that sends an event after a complex insert into a database
-            val service = OrderService(topic)
+            val orderServiceEventProducer = createProducer()
+            val service = OrderService(topic, orderServiceEventProducer)
             val newOrder = service.createOrder("ACME Inc.", listOf(LineItem("X", 1)))
 
             // Then: The expected item is created
@@ -159,8 +162,9 @@ class KafkaIntegrationTest : KoinTest {
 
             // And: a block of code that throws an exception due to bad data
             var newOrder: Order? = null
+            val orderServiceEventProducer = createProducer()
             assertThrows<IllegalArgumentException> {
-                val service = OrderService(topic)
+                val service = OrderService(topic, orderServiceEventProducer)
                 newOrder = service.createOrder("ACME Inc.", listOf(LineItem("X", 0)))
             }
 
@@ -182,7 +186,8 @@ class KafkaIntegrationTest : KoinTest {
             createConsumerThread(topic) { _, _ ->
                 received.set(true)
             }
-            val service = OrderService(topic)
+            val orderServiceEventProducer = createProducer()
+            val service = OrderService(topic, orderServiceEventProducer)
 
             // And the old count of events in the database
             val dbc: DatabaseConnection by inject()
@@ -227,15 +232,16 @@ class KafkaIntegrationTest : KoinTest {
         val isReady = AtomicBoolean(false)
         val numReceived = AtomicInteger(0)
         thread {
-            val consumer = createConsumer()
+            val stream = createConsumer().stream(topic, consumerGroup)
 
-            consumer.stream(topic, consumerGroup)
-                .doOnError { it.printStackTrace() }
+            stream.doOnError { it.printStackTrace() }
                 .onErrorReturnItem(EventOutput.buildError())
                 .doOnSubscribe {
                     isReady.set(true)
+                    println("ON SUBSCRIBE!!!!")
                 }
                 .subscribe {
+                    println("GOT EVENT")
                     handler(consumerGroup, numReceived.incrementAndGet())
                 }
         }
@@ -251,7 +257,6 @@ class KafkaIntegrationTest : KoinTest {
         thread {
             val producer = createProducer()
             isReady.set(true)
-
             repeat(numMessagesToSend) { n ->
                 val payload =
                     """{"timestamp": "${Instant.now()}", "producerId": "0", "messageId": "$n"}""".toByteArray()

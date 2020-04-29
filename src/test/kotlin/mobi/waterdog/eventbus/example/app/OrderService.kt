@@ -1,24 +1,17 @@
 package mobi.waterdog.eventbus.example.app
 
-import mobi.waterdog.eventbus.EventBusFactory
 import mobi.waterdog.eventbus.EventProducer
-import mobi.waterdog.eventbus.containers.KafkaTestContainer
 import mobi.waterdog.eventbus.engine.kafka.JsonSettings
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.serialization.StringSerializer
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.select
 import org.koin.core.KoinComponent
 import org.koin.core.inject
-import java.util.Properties
-import java.util.UUID
 
-class OrderService(private val topic: String) : KoinComponent {
+class OrderService(private val topic: String, private val eventProducer: EventProducer) : KoinComponent {
 
-    private val ebf: EventBusFactory by inject()
     private val dbc: DatabaseConnection by inject()
 
     init {
@@ -26,15 +19,6 @@ class OrderService(private val topic: String) : KoinComponent {
             SchemaUtils.create(OrderTable)
             SchemaUtils.create(LineItemTable)
         }
-    }
-
-    private val eventProducer: EventProducer by lazy {
-        val props = Properties()
-        props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = KafkaTestContainer.instance.bootstrapServers
-        props[ProducerConfig.CLIENT_ID_CONFIG] = UUID.randomUUID().toString()
-        props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
-        props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
-        ebf.getProducer(props)
     }
 
     fun createOrder(customer: String, lineItems: List<LineItem>, isEvil: Boolean = false): Order {

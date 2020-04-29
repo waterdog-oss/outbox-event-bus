@@ -10,6 +10,7 @@ import java.util.Properties
 private interface EventBusProvider {
     fun getProducer(props: Properties = Properties()): EventProducer
     fun getConsumer(props: Properties = Properties()): EventConsumer
+    fun shutdown()
 }
 
 internal class EventBusFactoryImpl(private val localEventCache: LocalEventCache) : EventBusFactory {
@@ -23,6 +24,10 @@ internal class EventBusFactoryImpl(private val localEventCache: LocalEventCache)
             EventBackend.Local -> InMemoryBus(localEventCache)
             EventBackend.Kafka -> KafkaBus(localEventCache)
         }
+    }
+
+    override fun shutdown() {
+        this.provider?.shutdown()
     }
 
     override fun getProducer(props: Properties): EventProducer {
@@ -44,6 +49,7 @@ internal class InMemoryBus(private val localEventCache: LocalEventCache) : Event
 
     override fun getProducer(props: Properties): EventProducer = PersistentEventWriter(localEventCache, engine)
     override fun getConsumer(props: Properties): EventConsumer = engine
+    override fun shutdown() { PersistentEventWriter.shutdown() }
 }
 
 internal class KafkaBus(private val localEventCache: LocalEventCache) : EventBusProvider {
@@ -54,4 +60,6 @@ internal class KafkaBus(private val localEventCache: LocalEventCache) : EventBus
     override fun getConsumer(props: Properties): EventConsumer {
         return KafkaEventConsumer(props)
     }
+
+    override fun shutdown() { PersistentEventWriter.shutdown() }
 }
