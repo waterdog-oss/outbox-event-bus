@@ -1,12 +1,14 @@
 package mobi.waterdog.eventbus
 
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import mobi.waterdog.eventbus.engine.EventProvider
 import mobi.waterdog.eventbus.engine.kafka.KafkaEventProvider
 import mobi.waterdog.eventbus.engine.local.LocalEventProvider
 import mobi.waterdog.eventbus.persistence.LocalEventStore
 import java.util.Properties
 
-class EventBusProvider(type: EventBackend) {
+class EventBusProvider(type: EventBackend, private val meterRegistry: MeterRegistry = SimpleMeterRegistry()) {
 
     companion object {
         const val CLEANUP_INTERVAL_SECONDS_PROP = "producer.event.cleanup.intervalInSeconds"
@@ -32,10 +34,10 @@ class EventBusProvider(type: EventBackend) {
         requireNotNull(store) {
             "Local event store has not been defined. Please run 'setupProvider'"
         }
-        return provider.getProducer(props, store)
+        return provider.getProducer(props, store, meterRegistry)
     }
 
     fun getConsumer(props: Properties = Properties()): EventConsumer {
-        return provider.getConsumer(props)
+        return provider.getConsumer(props, meterRegistry)
     }
 }

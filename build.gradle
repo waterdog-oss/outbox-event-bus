@@ -44,7 +44,11 @@ buildscript {
             "pgsql"         : "org.postgresql:postgresql:42.2.8",
             "kafkaClients"  : "org.apache.kafka:kafka-clients:2.2.0",
             "rxJava2"       : "io.reactivex.rxjava2:rxjava:2.2.8",
-            "awaitility"    : "org.awaitility:awaitility:4.0.2",
+            "awaitility"    : [
+                    "core"  : "org.awaitility:awaitility:4.0.2",
+                    "kotlin": "org.awaitility:awaitility-kotlin:4.0.2"
+            ],
+            "micrometer"    : "io.micrometer:micrometer-core:1.5.0",
             "testContainers": [
                     "core"     : "org.testcontainers:testcontainers:${versions.testContainers}",
                     "junit5"   : "org.testcontainers:junit-jupiter:${versions.testContainers}",
@@ -108,6 +112,7 @@ dependencies {
     implementation deps.jackson.databind
     implementation deps.jackson.kotlin
     implementation deps.jackson.jsr310
+    implementation deps.micrometer
 
     testImplementation deps.junit.jupiterApi
     testImplementation deps.junit.jupiterParams
@@ -121,7 +126,8 @@ dependencies {
     testImplementation deps.testContainers.kafka
     testImplementation deps.testContainers.toxiproxy
     testImplementation deps.pgsql
-    testImplementation deps.awaitility
+    testImplementation deps.awaitility.core
+    testImplementation deps.awaitility.kotlin
     testImplementation deps.exposed
     testImplementation deps.koin.core
     testImplementation deps.koin.coreExt

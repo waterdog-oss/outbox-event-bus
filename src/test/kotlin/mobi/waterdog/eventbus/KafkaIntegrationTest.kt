@@ -1,27 +1,36 @@
 package mobi.waterdog.eventbus
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.containers.KafkaTestContainer
-import mobi.waterdog.eventbus.containers.PostgreSQLTestContainer
 import mobi.waterdog.eventbus.example.app.LineItem
 import mobi.waterdog.eventbus.example.app.Order
 import mobi.waterdog.eventbus.example.app.OrderService
 import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.model.StreamMode
+import mobi.waterdog.eventbus.persistence.EventRelay
+import mobi.waterdog.eventbus.persistence.LocalEventStore
 import mobi.waterdog.eventbus.sql.DatabaseConnection
 import mobi.waterdog.eventbus.sql.EventTable
 import org.amshove.kluent.`should be less than`
 import org.amshove.kluent.`should be null`
 import org.amshove.kluent.`should equal`
 import org.amshove.kluent.`should not be null`
-import org.awaitility.Awaitility.await
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.StringSerializer
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.until
+import org.awaitility.kotlin.untilAsserted
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -32,9 +41,10 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.inject
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.time.Duration
+import java.util.Properties
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Testcontainers
@@ -43,6 +53,10 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
 
     @BeforeAll
     fun initContext() {
+        while (!KafkaTestContainer.instance.isRunning) {
+            runBlocking { delay(100) }
+        }
+
         startKoin {
             modules(integrationTestModules)
         }
@@ -51,17 +65,21 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
     @AfterAll
     fun stopContext() {
         stopKoin()
-        PostgreSQLTestContainer.instance.stop()
-        KafkaTestContainer.instance.stop()
     }
 
     @AfterEach
     fun cleanEventSenders() {
         val ebp: EventBusProvider by inject()
         ebp.shutdown()
+        val dbc: DatabaseConnection by inject()
+        dbc.query {
+            SchemaUtils.drop(EventTable)
+            SchemaUtils.create(EventTable)
+        }
     }
 
     @Nested
+    @DisplayName("Basic integration with Kafka")
     inner class NonTransactionalIntegrationTest {
 
         @ParameterizedTest
@@ -87,17 +105,16 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             }
 
             // Then: The overall number of received messages is correct
-            await()
-                .atMost(30, TimeUnit.SECONDS)
-                .until {
-                    received.isNotEmpty() &&
-                        received.map { it.value }
-                            .reduce { acc, value -> acc + value } == (numProducers * numConsumers * numMessagesPerProducer)
-                }
+            await atMost Duration.ofSeconds(30) until {
+                received.isNotEmpty() &&
+                    received.map { it.value }
+                        .reduce { acc, value -> acc + value } == (numProducers * numConsumers * numMessagesPerProducer)
+            }
         }
     }
 
     @Nested
+    @DisplayName("Cleanup loop test")
     inner class CleanupLoopTest {
 
         @Test
@@ -114,16 +131,17 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             currentCount `should equal` 1
 
             // Then: The message is retained even after some time has elapsed
-            runBlocking { delay(10000L) }
-            val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
-            updatedCount `should equal` currentCount
+            await atMost Duration.ofSeconds(10) untilAsserted {
+                val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+                updatedCount `should equal` currentCount
+            }
         }
 
         @Test
         fun `Sent events are cleaned up according to the policy defined in the configuration`() {
             // Given: A producer sending a bunch of messages
-            val numSecs = 5
-            val producer = createProducer(numSecs)
+            val cleanupThresholdSeconds = 5
+            val producer = createProducer(cleanupThresholdSeconds)
             val testTopic = UUID.randomUUID().toString()
             producer.send(EventInput(testTopic, "cleanup_test", "application/json", "[]".toByteArray()))
 
@@ -133,13 +151,15 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             currentCount `should equal` 1
 
             // Then: The message is deleted after the time has elapsed
-            runBlocking { delay((numSecs + 1) * 1000L) }
-            val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
-            updatedCount `should be less than` currentCount
+            await atMost Duration.ofSeconds(cleanupThresholdSeconds + 1L) untilAsserted {
+                val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
+                updatedCount `should be less than` currentCount
+            }
         }
     }
 
     @Nested
+    @DisplayName("Transactional service example")
     inner class TransactionalIntegrationTest {
 
         @Test
@@ -160,13 +180,11 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             service.getOrderById(newOrder.id).`should not be null`()
 
             // And: the event is received
-            await()
-                .atMost(30, TimeUnit.SECONDS)
-                .until {
-                    received.isNotEmpty() &&
-                        received.map { it.value }
-                            .reduce { acc, value -> acc + value } == 1
-                }
+            await atMost Duration.ofSeconds(30) until {
+                received.isNotEmpty() &&
+                    received.map { it.value }
+                        .reduce { acc, value -> acc + value } == 1
+            }
         }
 
         @Test
@@ -245,6 +263,54 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             }
             updateOrders `should equal` oldOrders
             updatedCount `should equal` oldCount
+        }
+    }
+
+    @Nested
+    @DisplayName("Metrics tests")
+    inner class MetricsIntegrationTest {
+        @Test
+        fun `The metrics for sent events are collected`() {
+            // Given: A meter registry
+            val meterRegistry = SimpleMeterRegistry()
+
+            // And: A producer
+            val producer = createProducerWithMeterRegistry(meterRegistry)
+            val n = 10
+            val topic = UUID.randomUUID().toString()
+            repeat(n) {
+                producer.send(EventInput(topic, "metric-test", "application/json", """{"n": $it}""".toByteArray()))
+            }
+
+            // Expect: the exact number of send events to have been recorded in the database
+            val dbc: DatabaseConnection by inject()
+            val storedEvents = dbc.query { EventTable.select { EventTable.topic eq topic }.count() }
+            storedEvents `should equal` n
+
+            // And: the metrics should reflect that
+            meterRegistry[EventRelay.EVENTS_STORE_TIMER].timer().count() `should equal` n.toLong()
+            meterRegistry[EventRelay.EVENTS_STORE_ERROR].counter().count() `should equal` 0.0
+
+            // And: a while after, the sent messages are also accounted
+            await atMost Duration.ofSeconds(10) untilAsserted {
+                meterRegistry[EventRelay.EVENTS_SEND_TIMER].timer().count() `should equal` n.toLong()
+                meterRegistry[EventRelay.EVENTS_SEND_ERROR].counter().count() `should equal` 0.0
+                meterRegistry[EventRelay.EVENTS_CLEANUP_TIMER].timer().count() `should equal` n.toLong()
+                meterRegistry[EventRelay.EVENTS_CLEANUP_ERROR].counter().count() `should equal` 0.0
+            }
+        }
+
+        private fun createProducerWithMeterRegistry(meterRegistry: SimpleMeterRegistry): EventProducer {
+            val localEventStore: LocalEventStore by inject()
+            val ebf = EventBusProvider(EventBackend.Kafka, meterRegistry)
+            ebf.setupProducer(localEventStore)
+            val props = Properties()
+            props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = KafkaTestContainer.instance.bootstrapServers
+            props[ProducerConfig.CLIENT_ID_CONFIG] = UUID.randomUUID().toString()
+            props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
+            props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
+            props["producer.event.cleanup.intervalInSeconds"] = "1"
+            return ebf.getProducer(props)
         }
     }
 }
