@@ -1,6 +1,6 @@
 package mobi.waterdog.eventbus.example.app
 
-import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
+import mobi.waterdog.eventbus.sql.DatabaseConnection
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.sql.insert
 

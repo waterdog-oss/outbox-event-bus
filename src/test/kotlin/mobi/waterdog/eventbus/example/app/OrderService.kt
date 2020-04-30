@@ -3,7 +3,7 @@ package mobi.waterdog.eventbus.example.app
 import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.kafka.JsonSettings
 import mobi.waterdog.eventbus.model.EventInput
-import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
+import mobi.waterdog.eventbus.sql.DatabaseConnection
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.select

@@ -10,8 +10,8 @@ import mobi.waterdog.eventbus.example.app.OrderService
 import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.model.StreamMode
-import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
-import mobi.waterdog.eventbus.persistence.sql.EventTable
+import mobi.waterdog.eventbus.sql.DatabaseConnection
+import mobi.waterdog.eventbus.sql.EventTable
 import org.amshove.kluent.`should be less than`
 import org.amshove.kluent.`should be null`
 import org.amshove.kluent.`should equal`
@@ -46,8 +46,6 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
         startKoin {
             modules(integrationTestModules)
         }
-        println("SERVERS")
-        println("${KafkaTestContainer.instance.bootstrapServers}")
     }
 
     @AfterAll
@@ -59,8 +57,8 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
 
     @AfterEach
     fun cleanEventSenders() {
-        val ebf: EventBusFactory by inject()
-        ebf.shutdown()
+        val ebp: EventBusProvider by inject()
+        ebp.shutdown()
     }
 
     @Nested

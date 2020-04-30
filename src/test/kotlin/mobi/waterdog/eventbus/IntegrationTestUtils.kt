@@ -7,6 +7,7 @@ import mobi.waterdog.eventbus.containers.PostgreSQLTestContainer
 import mobi.waterdog.eventbus.model.EventInput
 import mobi.waterdog.eventbus.model.EventOutput
 import mobi.waterdog.eventbus.model.StreamMode
+import mobi.waterdog.eventbus.persistence.LocalEventStore
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
 import org.awaitility.Awaitility
@@ -41,6 +42,7 @@ val integrationTestModules = listOf(
         }
     },
     databaseConnectionModule(),
+    localEventCacheModule(),
     eventBusKoinModule()
 )
 
@@ -115,8 +117,7 @@ open class BaseIntegrationTest : KoinTest {
             props["enable.auto.commit"] = "false"
             props["consumer.streamMode"] = "MessageCommit"
         }
-        val ebf: EventBusFactory by inject()
-        ebf.setup(EventBackend.Kafka)
+        val ebf: EventBusProvider by inject()
         return ebf.getConsumer(props)
     }
 
@@ -130,8 +131,9 @@ open class BaseIntegrationTest : KoinTest {
             props["producer.event.cleanup.intervalInSeconds"] = "$cleanupIntervalSeconds"
         }
 
-        val ebf: EventBusFactory by inject()
-        ebf.setup(EventBackend.Kafka)
+        val ebf: EventBusProvider by inject()
+        val localEventStore: LocalEventStore by inject()
+        ebf.setupProducer(localEventStore)
         return ebf.getProducer(props)
     }
 }

@@ -1,16 +1,15 @@
-package mobi.waterdog.eventbus.persistence.sql
+package mobi.waterdog.eventbus.sql
 
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
-import mobi.waterdog.eventbus.persistence.LocalEventCache
+import mobi.waterdog.eventbus.persistence.LocalEventStore
 import org.jetbrains.exposed.sql.and
-import org.joda.time.DateTime
 import org.joda.time.Instant
-import org.joda.time.ReadableDuration
+import java.time.Duration
 import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
 
-internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnection) : LocalEventCache {
+internal class LocalEventStoreSql(private val databaseConnection: DatabaseConnection) : LocalEventStore {
 
     override fun markAsDelivered(eventId: Long) {
         databaseConnection.query {
@@ -34,10 +33,10 @@ internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnec
         }
     }
 
-    override fun fetchCleanableEvents(duration: ReadableDuration, limit: Int): List<Event> {
+    override fun fetchCleanableEvents(duration: Duration, limit: Int): List<Event> {
         return databaseConnection.query {
-            val cutoffTime = DateTime().minus(duration)
-            EventDAO.find { (EventTable.delivered eq true) and (EventTable.storedTimestamp less cutoffTime) }
+            val cutoffTime = java.time.Instant.now().minus(duration).toEpochMilli()
+            EventDAO.find { (EventTable.delivered eq true) and (EventTable.storedTimestamp less Instant(cutoffTime).toDateTime()) }
                 .limit(limit)
                 .map { it.toFullModel() }
         }

@@ -35,6 +35,7 @@ buildscript {
                     "jupiterParams": "org.junit.jupiter:junit-jupiter-params:${versions.junit}",
                     "jupiterEngine": "org.junit.jupiter:junit-jupiter-engine:${versions.junit}"
             ],
+            "joda"          : "joda-time:joda-time:2.10.5",
             "exposed"       : "org.jetbrains.exposed:exposed:0.17.7",
             "kluent"        : "org.amshove.kluent:kluent:1.47",
             "logback"       : "ch.qos.logback:logback-classic:1.2.3",
@@ -100,9 +101,7 @@ dependencies {
     implementation deps.kotlin.reflect
     implementation deps.kotlin.coroutines
     implementation deps.logback
-    implementation deps.exposed
-    implementation deps.koin.core
-    implementation deps.koin.coreExt
+
     implementation deps.kafkaClients
     implementation deps.rxJava2
     implementation deps.jackson.core
@@ -123,6 +122,10 @@ dependencies {
     testImplementation deps.testContainers.toxiproxy
     testImplementation deps.pgsql
     testImplementation deps.awaitility
+    testImplementation deps.exposed
+    testImplementation deps.koin.core
+    testImplementation deps.koin.coreExt
+    testImplementation deps.joda
 
     testRuntimeOnly deps.exposed
     testRuntimeOnly deps.junit.jupiterEngine

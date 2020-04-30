@@ -5,14 +5,14 @@ import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.EventEngine
 import mobi.waterdog.eventbus.model.EventInput
-import org.joda.time.Duration
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 internal class EventRelay(
-    private val localEventCache: LocalEventCache,
+    private val localEventStore: LocalEventStore,
     private val eventEngine: EventEngine,
     private val cleanUpAfter: Duration
 ) : EventProducer {
@@ -45,7 +45,7 @@ internal class EventRelay(
 
     override fun send(eventInput: EventInput): Boolean {
         return try {
-            localEventCache.storeEvent(eventInput)
+            localEventStore.storeEvent(eventInput)
             true
         } catch (ex: Exception) {
             log.error("Event storage failed${ex.message}", ex)
@@ -56,12 +56,12 @@ internal class EventRelay(
     private fun syncLoop(generation: Int) {
         val retryAttempt = AtomicInteger(0)
         while (eventWriterLoopStarted.get() && currentGeneration.get() == generation) {
-            val itemBatch = localEventCache.fetchEventsReadyToSend(100)
+            val itemBatch = localEventStore.fetchEventsReadyToSend(100)
             if (itemBatch.isNotEmpty()) {
                 for (item in itemBatch) {
                     try {
                         eventEngine.send(item)
-                        localEventCache.markAsDelivered(item.id)
+                        localEventStore.markAsDelivered(item.id)
                         retryAttempt.set(0)
                     } catch (ex: Exception) {
                         log.error("Error sending event", ex)
@@ -80,10 +80,10 @@ internal class EventRelay(
         while (eventWriterLoopStarted.get() && currentGeneration.get() == generation) {
             try {
                 val itemsToCleanup =
-                    localEventCache.fetchCleanableEvents(cleanUpAfter, 100)
+                    localEventStore.fetchCleanableEvents(cleanUpAfter, 100)
                 if (itemsToCleanup.isNotEmpty()) {
                     itemsToCleanup.forEach { item ->
-                        localEventCache.deleteEvent(item.id)
+                        localEventStore.deleteEvent(item.id)
                     }
                 } else {
                     runBlocking { delay(1000) }
