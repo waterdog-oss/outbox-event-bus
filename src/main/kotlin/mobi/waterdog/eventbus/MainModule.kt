@@ -7,12 +7,19 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
+fun databaseConnectionModule(): Module {
+    return module {
+        single {
+            DatabaseConnection(get())
+        }
+    }
+}
+
 fun eventBusKoinModule(): Module {
     return module {
         single<EventBusFactory> {
-            val dbc = DatabaseConnection(get())
+            val dbc: DatabaseConnection = get()
             val localEventCache = LocalEventCacheSql(dbc)
-
             dbc.query {
                 SchemaUtils.create(EventTable)
             }

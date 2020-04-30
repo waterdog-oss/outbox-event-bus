@@ -9,6 +9,7 @@ enum class EventBackend {
 
 interface EventBusFactory {
     fun setup(type: EventBackend = EventBackend.Local)
+    fun shutdown()
     fun getProducer(props: Properties = Properties()): EventProducer
     fun getConsumer(props: Properties = Properties()): EventConsumer
 }
