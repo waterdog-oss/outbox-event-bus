@@ -1,8 +1,8 @@
-package mobi.waterdog.eventbus.persistence.sql
+package mobi.waterdog.eventbus.sql
 
 import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
-import mobi.waterdog.eventbus.persistence.LocalEventCache
+import mobi.waterdog.eventbus.persistence.LocalEventStore
 import org.jetbrains.exposed.sql.and
 import org.joda.time.DateTime
 import org.joda.time.Instant
@@ -10,7 +10,7 @@ import org.joda.time.ReadableDuration
 import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
 
-internal class LocalEventCacheSql(private val databaseConnection: DatabaseConnection) : LocalEventCache {
+internal class LocalEventStoreSql(private val databaseConnection: DatabaseConnection) : LocalEventStore {
 
     override fun markAsDelivered(eventId: Long) {
         databaseConnection.query {

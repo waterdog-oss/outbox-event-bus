@@ -1,24 +1,15 @@
-package mobi.waterdog.eventbus.example.consumer
-
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+package mobi.waterdog.eventbus.example.consume
+r
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import mobi.waterdog.eventbus.EventBackend
-import mobi.waterdog.eventbus.EventBusFactory
-import mobi.waterdog.eventbus.EventConsumer
-import mobi.waterdog.eventbus.eventBusKoinModule
 import mobi.waterdog.eventbus.model.EventOutput
 import mobi.waterdog.eventbus.model.StreamMode
+import mobi.waterdog.eventbus.model.EventBackend
 import org.koin.core.KoinComponent
-import org.koin.core.context.startKoin
-import org.koin.core.inject
-import org.koin.dsl.module
 import org.slf4j.LoggerFactory
 import java.util.Properties
 import java.util.Random
 import java.util.concurrent.Executors
-import javax.sql.DataSource
 
 object BaseProps {
     fun getDefault(kafkaServer: String): Properties {
@@ -68,8 +59,7 @@ class ConsumerLoop(
             props.setProperty("enable.auto.commit", "false")
         }
 
-        val ebp: EventBusFactory by inject()
-        ebp.setup(EventBackend.Kafka)
+        val ebp = EventBusProvider(EventBackend.Kafka)
         consumer = ebp.getConsumer(props)
     }
 
@@ -96,8 +86,7 @@ class CustomConfigConsumerLoop(
     override val consumer: EventConsumer
 
     init {
-        val ebp: EventBusFactory by inject()
-        ebp.setup(EventBackend.Kafka)
+        val ebp = EventBusProvider(EventBackend.Kafka)
         consumer = ebp.getConsumer(props)
     }
 
@@ -130,8 +119,7 @@ class ByzantineConsumer(
         props.setProperty("auto.offset.reset", offsetReset)
         props.setProperty("consumer.streamMode", streamMode.name)
 
-        val ebp: EventBusFactory by inject()
-        ebp.setup(EventBackend.Kafka)
+        val ebp = EventBusProvider(EventBackend.Kafka)
         consumer = ebp.getConsumer(props)
     }
 
@@ -155,24 +143,6 @@ class ByzantineConsumer(
 }
 
 fun main() {
-    startKoin {
-        listOf(
-            module {
-                single<DataSource> {
-                    HikariDataSource(HikariConfig().apply {
-                        driverClassName = "org.h2.Driver"
-                        jdbcUrl = "jdbc:h2:mem:test"
-                        maximumPoolSize = 5
-                        isAutoCommit = false
-                        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-                        validate()
-                    })
-                }
-            },
-            eventBusKoinModule()
-        )
-    }
-
     val server = "kafka-service:9092"
     val topic = "test-0.10"
     val random = Random().nextLong()

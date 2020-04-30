@@ -1,4 +1,4 @@
-package mobi.waterdog.eventbus.persistence.sql
+package mobi.waterdog.eventbus.sql
 
 import mobi.waterdog.eventbus.model.Event
 import org.jetbrains.exposed.dao.EntityID

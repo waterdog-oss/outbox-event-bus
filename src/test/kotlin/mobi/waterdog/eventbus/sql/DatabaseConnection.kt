@@ -1,4 +1,4 @@
-package mobi.waterdog.eventbus.persistence.sql
+package mobi.waterdog.eventbus.sql
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction

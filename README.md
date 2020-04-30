@@ -11,7 +11,7 @@ This library targets scenarios where we want to reliably persist data and send e
 
 ### Concepts
 
-* EventBusFactory: Main entry point used by producers and consumers allowing users to setup kafka. It is available as a Koin dependency
+* EventBusProvider: Main entry point used by producers and consumers allowing users to setup kafka.
 * EventProducer: Sends events to the database, that will be eventually sent to the message queue;
 * EventConsumer: Interface that provides a reactive stream of events that the user can subscribe to;
 * Engine: The underlying messaging technology used to propagate the messages;
@@ -78,9 +78,9 @@ transactional properties that are implied.
 * Add the dependency: com.github.waterdog-oss:ktor-event-bus:<release-version>
 
 ### Setting up a producer:
-1. Setup the dependencies (database and event bus factory) via Koin
+1. Setup the dependencies (database and local event store)
 2. Setup Kafka
-3. Use the event bus factory, to get a producer
+3. Use the event bus provider, to get a producer
 4. Send a message
 
 Example:
@@ -88,20 +88,17 @@ Example:
 // imports are omitted. Check the examples section - producer
 
 // Step 1
-val modules = listOf(module {
-    single<DataSource> {
-        HikariDataSource(HikariConfig().apply {
-            driverClassName = "org.h2.Driver"
-            jdbcUrl = "jdbc:h2:mem:test"
-            maximumPoolSize = 5
-            isAutoCommit = false
-            transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-            validate()
-        })
-    }
-}, eventBusKoinModule())
+val dataSource:DataSource = HikariDataSource(HikariConfig().apply {
+    driverClassName = "org.h2.Driver"
+    jdbcUrl = "jdbc:h2:mem:test"
+    maximumPoolSize = 5
+    isAutoCommit = false
+    transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+    validate()
+})
 
-StandAloneContext.startKoin(modules)
+// See the producer example (mobi.waterdog.eventbus.example.sql.LocalEventStoreSql)
+val localEventStore: LocalEventStore =  MyLocalEventStore(dataSource)
 
 // Step 2
 val props = Properties()
@@ -112,38 +109,25 @@ props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerialize
 props["value.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
 
 // Step 3
-val ebf: EventBusFactory by inject() // Get the bus factory via Koin
-ebf.setup(EventBackend.Kafka)
+val ebp = EventBusProvider()
+ebf.setupProducer(EventBackend.Kafka, localEventStore)
 val producer = ebf.getProducer(props)
 
 // Step 4
-producer.send(EventInput("test-0.10", "OK", "text/plain", "sent at: ${Instant.now()}".toByteArray()))
+producer.send(EventInput("test", "OK", "text/plain", "sent at: ${Instant.now()}".toByteArray()))
 ```
 
 ### Setting up a consumer: 
-1. Setup the dependencies (database and event bus factory) via Koin
-2. Setup Kafka
-3. Use the event bus factory, to get a consumer
+1. Setup the EventBusProvider
+2. Setup the kafka consumer
 4. Setup a subscription to the stream
 
 ```kotlin
 // imports are omitted. Check the examples section - consumer
 
 // Step 1
-val modules = listOf(module {
-    single<DataSource> {
-        HikariDataSource(HikariConfig().apply {
-            driverClassName = "org.h2.Driver"
-            jdbcUrl = "jdbc:h2:mem:test"
-            maximumPoolSize = 5
-            isAutoCommit = false
-            transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-            validate()
-        })
-    }
-}, eventBusKoinModule())
-
-StandAloneContext.startKoin(modules)
+val ebp = EventBusProvider()
+ebp.setupConsumer(EventBackend.Kafka)
 
 // Step 2
 val props = Properties()
@@ -160,13 +144,9 @@ props["value.deserializer"] = "org.apache.kafka.common.serialization.StringDeser
 //Event bus property that controls the sync loop and the auto-commit mode
 props["consumer.syncInterval"] = "1000"
 props["consumer.streamMode"] = "AutoCommit"
-
-// Step 3
-val ebf: EventBusFactory by inject() // Get the bus factory via Koin
-ebf.setup(EventBackend.Kafka)
 val consumer = ebf.getConsumer(props)
 
-// Step 4
+// Step 3
 val topic="my-topic"
 val consumerId = "consumer-group-id"
 consumer.stream(topic, consumerId)
@@ -180,9 +160,6 @@ consumer.stream(topic, consumerId)
 ## Roadmap
 * Provide metrics
 * Separate event relay thread from producer
-* Remove Koin dependency
-* Remove the dependency from [Exposed](https://github.com/JetBrains/Exposed), and allow the operator to define his own local event store with whatever technology
-that suits his needs
 * Use toxiproxy to assert the correct when errors happen
 * Add support for sending messages with keys!
 * We are using JSON as a serialization mechanism. Allow the operators to provide their own

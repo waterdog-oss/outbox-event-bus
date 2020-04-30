@@ -4,7 +4,7 @@ import mobi.waterdog.eventbus.model.Event
 import mobi.waterdog.eventbus.model.EventInput
 import org.joda.time.ReadableDuration
 
-internal interface LocalEventCache {
+interface LocalEventStore {
     fun storeEvent(eventInput: EventInput): Event
     fun getEvent(eventId: Long): Event?
     fun markAsDelivered(eventId: Long)

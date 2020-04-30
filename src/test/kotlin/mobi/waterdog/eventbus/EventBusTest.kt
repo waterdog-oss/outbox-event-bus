@@ -5,59 +5,49 @@ import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.model.EventInput
+import mobi.waterdog.eventbus.sql.DatabaseConnection
+import mobi.waterdog.eventbus.sql.EventTable
+import mobi.waterdog.eventbus.sql.LocalEventStoreSql
 import org.amshove.kluent.`should be true`
 import org.amshove.kluent.`should equal`
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
-import org.koin.dsl.module
 import org.koin.test.KoinTest
-import org.koin.test.inject
-import javax.sql.DataSource
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EventBusTest : KoinTest {
 
-    @BeforeAll
-    fun beforeClass() {
-        startKoin {
-            modules(
-                listOf(
-                    module {
-                        single<DataSource> {
-                            HikariDataSource(HikariConfig().apply {
-                                driverClassName = "org.h2.Driver"
-                                jdbcUrl = "jdbc:h2:mem:test"
-                                maximumPoolSize = 5
-                                isAutoCommit = false
-                                transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-                                validate()
-                            })
-                        }
-                    },
-                    databaseConnectionModule(),
-                    eventBusKoinModule()
-                )
-            )
-        }
-    }
-
     @AfterAll
     fun afterAll() {
-        ebf.shutdown()
-        stopKoin()
+        ebp.shutdown()
+        dbc.query { SchemaUtils.drop(EventTable) }
     }
 
     private val targetTopic1 = "MyTopic1"
     private val targetTopic2 = "MyTopic2"
-    private val ebf by inject<EventBusFactory>()
-    private val eventProducer: EventProducer by lazy { ebf.getProducer() }
-    private val eventConsumer: EventConsumer by lazy { ebf.getConsumer() }
+    private val ebp = EventBusProvider(EventBackend.Local)
+    private val dataSource = HikariDataSource(HikariConfig().apply {
+        driverClassName = "org.h2.Driver"
+        jdbcUrl = "jdbc:h2:mem:test"
+        maximumPoolSize = 5
+        isAutoCommit = false
+        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        validate()
+    })
+    private val dbc = DatabaseConnection(dataSource)
+    private val localEventStore by lazy {
+
+        dbc.query { SchemaUtils.create(EventTable) }
+        LocalEventStoreSql(dbc)
+    }
+    private val eventProducer: EventProducer by lazy {
+        ebp.setupProducer(localEventStore)
+        ebp.getProducer()
+    }
+    private val eventConsumer: EventConsumer by lazy { ebp.getConsumer() }
 
     @AfterEach
     fun cleanup() {
@@ -69,11 +59,6 @@ class EventBusTest : KoinTest {
 
             eventConsumer.listSubscribers(topic).size `should equal` 0
         }
-    }
-
-    @BeforeEach
-    fun setup() {
-        ebf.setup()
     }
 
     @Test
