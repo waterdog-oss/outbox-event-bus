@@ -45,10 +45,11 @@ buildscript {
             "rxJava2"       : "io.reactivex.rxjava2:rxjava:2.2.8",
             "awaitility"    : "org.awaitility:awaitility:4.0.2",
             "testContainers": [
-                    "core"  : "org.testcontainers:testcontainers:${versions.testContainers}",
-                    "junit5": "org.testcontainers:junit-jupiter:${versions.testContainers}",
-                    "pgsql" : "org.testcontainers:postgresql:${versions.testContainers}",
-                    "kafka" : "org.testcontainers:kafka:${versions.testContainers}",
+                    "core"     : "org.testcontainers:testcontainers:${versions.testContainers}",
+                    "junit5"   : "org.testcontainers:junit-jupiter:${versions.testContainers}",
+                    "pgsql"    : "org.testcontainers:postgresql:${versions.testContainers}",
+                    "kafka"    : "org.testcontainers:kafka:${versions.testContainers}",
+                    "toxiproxy": "org.testcontainers:toxiproxy:${versions.testContainers}"
             ]
     ]
 
@@ -119,6 +120,7 @@ dependencies {
     testImplementation deps.testContainers.junit5
     testImplementation deps.testContainers.pgsql
     testImplementation deps.testContainers.kafka
+    testImplementation deps.testContainers.toxiproxy
     testImplementation deps.pgsql
     testImplementation deps.awaitility
 

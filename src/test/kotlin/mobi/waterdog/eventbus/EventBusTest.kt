@@ -12,6 +12,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
@@ -19,8 +20,9 @@ import org.koin.test.KoinTest
 import org.koin.test.inject
 import javax.sql.DataSource
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EventBusTest : KoinTest {
-    @Suppress("unused")
+
     @BeforeAll
     fun beforeClass() {
         startKoin {
@@ -45,7 +47,6 @@ class EventBusTest : KoinTest {
         }
     }
 
-    @Suppress("unused")
     @AfterAll
     fun afterAll() {
         ebf.shutdown()

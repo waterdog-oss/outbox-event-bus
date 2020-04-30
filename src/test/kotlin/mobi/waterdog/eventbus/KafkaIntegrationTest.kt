@@ -1,7 +1,5 @@
 package mobi.waterdog.eventbus
 
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.containers.KafkaTestContainer
@@ -11,7 +9,6 @@ import mobi.waterdog.eventbus.example.app.Order
 import mobi.waterdog.eventbus.example.app.OrderService
 import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
-import mobi.waterdog.eventbus.model.EventOutput
 import mobi.waterdog.eventbus.model.StreamMode
 import mobi.waterdog.eventbus.persistence.sql.DatabaseConnection
 import mobi.waterdog.eventbus.persistence.sql.EventTable
@@ -19,8 +16,6 @@ import org.amshove.kluent.`should be less than`
 import org.amshove.kluent.`should be null`
 import org.amshove.kluent.`should equal`
 import org.amshove.kluent.`should not be null`
-import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.serialization.StringSerializer
 import org.awaitility.Awaitility.await
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
@@ -36,55 +31,30 @@ import org.junit.jupiter.params.provider.CsvSource
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.inject
-import org.koin.dsl.module
-import org.koin.test.KoinTest
 import org.testcontainers.junit.jupiter.Testcontainers
-import java.time.Instant
-import java.util.Properties
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
-import javax.sql.DataSource
-import kotlin.concurrent.thread
 
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class KafkaIntegrationTest : KoinTest {
+class KafkaIntegrationTest : BaseIntegrationTest() {
 
     @BeforeAll
     fun initContext() {
         startKoin {
-            modules(
-                listOf(
-                    module {
-                        single<DataSource> {
-                            val config = HikariConfig()
-                            config.driverClassName = PostgreSQLTestContainer.instance.driverClassName
-                            config.jdbcUrl = PostgreSQLTestContainer.instance.jdbcUrl
-                            config.username = PostgreSQLTestContainer.instance.username
-                            config.password = PostgreSQLTestContainer.instance.password
-                            config.maximumPoolSize = 10
-                            config.isAutoCommit = false
-                            config.transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-                            config.leakDetectionThreshold = 10000
-                            config.poolName = "tests"
-                            config.validate()
-
-                            HikariDataSource(config)
-                        }
-                    },
-                    databaseConnectionModule(),
-                    eventBusKoinModule()
-                )
-            )
+            modules(integrationTestModules)
         }
+        println("SERVERS")
+        println("${KafkaTestContainer.instance.bootstrapServers}")
     }
 
     @AfterAll
     fun stopContext() {
         stopKoin()
+        PostgreSQLTestContainer.instance.stop()
+        KafkaTestContainer.instance.stop()
     }
 
     @AfterEach
@@ -278,92 +248,5 @@ class KafkaIntegrationTest : KoinTest {
             updateOrders `should equal` oldOrders
             updatedCount `should equal` oldCount
         }
-    }
-
-    private fun createConsumerThread(
-        topic: String,
-        consumerGroup: String = UUID.randomUUID().toString(),
-        streamMode: StreamMode = StreamMode.AutoCommit,
-        handler: (consumerGroup: String, numReceived: Int) -> Unit
-    ) {
-        val isReady = AtomicBoolean(false)
-        val numReceived = AtomicInteger(0)
-        thread {
-            val stream = createConsumer(streamMode).stream(topic, consumerGroup)
-
-            stream.doOnError { it.printStackTrace() }
-                .onErrorReturnItem(EventOutput.buildError())
-                .doOnSubscribe {
-                    isReady.set(true)
-                }
-                .subscribe {
-                    handler(consumerGroup, numReceived.incrementAndGet())
-                }
-        }
-
-        await()
-            .atMost(60, TimeUnit.SECONDS)
-            .untilTrue(isReady)
-    }
-
-    private fun createProducerThread(topic: String, numMessagesToSend: Int) {
-        val isReady = AtomicBoolean(false)
-
-        thread {
-            val producer = createProducer()
-            isReady.set(true)
-            repeat(numMessagesToSend) { n ->
-                val payload =
-                    """{"timestamp": "${Instant.now()}", "producerId": "0", "messageId": "$n"}""".toByteArray()
-                producer.send(EventInput(topic, "message", "application/json", payload))
-            }
-        }
-
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .untilTrue(isReady)
-    }
-
-    private fun createConsumer(streamMode: StreamMode): EventConsumer {
-        val props = Properties()
-        //General cluster settings and config
-        props["bootstrap.servers"] = KafkaTestContainer.instance.bootstrapServers
-        props["heartbeat.interval.ms"] = "3000"
-        props["session.timeout.ms"] = "10000"
-        props["auto.offset.reset"] = "earliest"
-        props["key.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
-        props["value.deserializer"] = "org.apache.kafka.common.serialization.StringDeserializer"
-        //Event bus property that controls the sync loop and the auto-commit mode
-
-        if (streamMode == StreamMode.AutoCommit) {
-            props["enable.auto.commit"] = "true"
-            props["auto.commit.interval.ms"] = "1000"
-            props["consumer.syncInterval"] = "1000"
-            props["consumer.streamMode"] = "AutoCommit"
-        } else if (streamMode == StreamMode.EndOfBatchCommit) {
-            props["enable.auto.commit"] = "false"
-            props["consumer.streamMode"] = "EndOfBatchCommit"
-        } else if (streamMode == StreamMode.MessageCommit) {
-            props["enable.auto.commit"] = "false"
-            props["consumer.streamMode"] = "MessageCommit"
-        }
-        val ebf: EventBusFactory by inject()
-        ebf.setup(EventBackend.Kafka)
-        return ebf.getConsumer(props)
-    }
-
-    private fun createProducer(cleanupIntervalSeconds: Int = 0): EventProducer {
-        val props = Properties()
-        props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = KafkaTestContainer.instance.bootstrapServers
-        props[ProducerConfig.CLIENT_ID_CONFIG] = UUID.randomUUID().toString()
-        props[ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
-        props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
-        if (cleanupIntervalSeconds > 0) {
-            props["producer.event.cleanup.intervalInSeconds"] = "$cleanupIntervalSeconds"
-        }
-
-        val ebf: EventBusFactory by inject()
-        ebf.setup(EventBackend.Kafka)
-        return ebf.getProducer(props)
     }
 }

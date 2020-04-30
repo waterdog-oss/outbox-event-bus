@@ -2,13 +2,11 @@ package mobi.waterdog.eventbus.containers
 
 import org.testcontainers.containers.KafkaContainer
 
-class KKafkaContainer : KafkaContainer()
-
 object KafkaTestContainer {
     val instance by lazy { initKafka() }
 
-    private fun initKafka(): KKafkaContainer {
-        val instance = KKafkaContainer()
+    private fun initKafka(): KafkaContainer {
+        val instance = KafkaContainer()
         instance.start()
         return instance
     }

@@ -79,7 +79,6 @@ internal class EventRelay(
     private fun cleanupLoop(generation: Int) {
         while (eventWriterLoopStarted.get() && currentGeneration.get() == generation) {
             try {
-                println("CLEANUP LIMIT: ${cleanUpAfter.toStandardSeconds()}")
                 val itemsToCleanup =
                     localEventCache.fetchCleanableEvents(cleanUpAfter, 100)
                 if (itemsToCleanup.isNotEmpty()) {
