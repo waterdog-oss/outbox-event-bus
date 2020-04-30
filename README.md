@@ -98,7 +98,7 @@ val dataSource:DataSource = HikariDataSource(HikariConfig().apply {
 })
 
 // See the producer example (mobi.waterdog.eventbus.example.sql.LocalEventStoreSql)
-val localEventStore: LocalEventStore =  MyLocalEventStore(dataSource)
+val localEventStore: LocalEventStore =  MyLocalEventStore()
 
 // Step 2
 val props = Properties()
@@ -157,8 +157,35 @@ consumer.stream(topic, consumerId)
         }
 ```
 
+## Metrics
+
+The following metrics are exported (using [micrometer](https://micrometer.io)):
+
+* events.store.timer - Accounts the time it takes to store an event in the event store
+* events.store.error - Counts the number of errors storing events in the event store
+* events.send.timer - Accounts the time it takes to send an event to the message backend
+* events.send.error - Counts the number of errors sending errors to the message backend
+* events.cleanup.timer - Accounts the time it takes to clear an event from the store
+* events.cleanup.error - Counts the number of errors clearing events from the store
+
+### Providing 
+
+```kotlin
+// Given: A meter registry
+val meterRegistry = SimpleMeterRegistry()
+meterRegistry.config().commonTags("service-name", "my-beautiful-service")
+
+// See the producer example (mobi.waterdog.eventbus.example.sql.LocalEventStoreSql)
+val localEventStore: LocalEventStore =  MyLocalEventStore()
+
+val ebf = EventBusProvider(EventBackend.Kafka, meterRegistry)
+ebf.setupProducer(localEventStore)
+
+// You are then able to access your metrics
+val timer = meterRegistry.get("events.store.timer").timer()
+```
+
 ## Roadmap
-* Provide metrics
 * Separate event relay thread from producer
 * Use toxiproxy to assert the correct when errors happen
 * Add support for sending messages with keys!
