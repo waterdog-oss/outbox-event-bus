@@ -183,6 +183,7 @@ consumer.stream(topic, consumerId)
 * Remove Koin dependency
 * Remove the dependency from [Exposed](https://github.com/JetBrains/Exposed), and allow the operator to define his own local event store with whatever technology
 that suits his needs
+* Use toxiproxy to assert the correct when errors happen
 * Add support for sending messages with keys!
 * We are using JSON as a serialization mechanism. Allow the operators to provide their own
 serialization mechanism so that other formats like protobufs can be used;
