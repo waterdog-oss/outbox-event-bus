@@ -124,8 +124,8 @@ dependencies {
     testImplementation deps.pgsql
     testImplementation deps.awaitility
     testImplementation deps.exposed
-    implementation deps.koin.core
-    implementation deps.koin.coreExt
+    testImplementation deps.koin.core
+    testImplementation deps.koin.coreExt
 
     testRuntimeOnly deps.exposed
     testRuntimeOnly deps.junit.jupiterEngine
