@@ -34,10 +34,10 @@ internal class LocalEventStoreSql(private val databaseConnection: DatabaseConnec
         }
     }
 
-    override fun fetchCleanableEvents(duration: ReadableDuration, limit: Int): List<Event> {
+    override fun fetchCleanableEvents(duration: Duration, limit: Int): List<Event> {
         return databaseConnection.query {
-            val cutoffTime = DateTime().minus(duration)
-            EventDAO.find { (EventTable.delivered eq true) and (EventTable.storedTimestamp less cutoffTime) }
+            val cutoffTime = java.time.Instant.now().minus(duration).toEpochMilli()
+            EventDAO.find { (EventTable.delivered eq true) and (EventTable.storedTimestamp less Instant(cutoffTime).toDateTime()) }
                 .limit(limit)
                 .map { it.toFullModel() }
         }

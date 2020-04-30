@@ -5,8 +5,8 @@ import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.EventProducer
 import mobi.waterdog.eventbus.engine.EventEngine
 import mobi.waterdog.eventbus.model.EventInput
-import org.joda.time.Duration
 import org.slf4j.LoggerFactory
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread

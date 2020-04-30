@@ -101,7 +101,6 @@ dependencies {
     implementation deps.kotlin.reflect
     implementation deps.kotlin.coroutines
     implementation deps.logback
-    implementation deps.joda
 
     implementation deps.kafkaClients
     implementation deps.rxJava2
@@ -126,6 +125,7 @@ dependencies {
     testImplementation deps.exposed
     testImplementation deps.koin.core
     testImplementation deps.koin.coreExt
+    testImplementation deps.joda
 
     testRuntimeOnly deps.exposed
     testRuntimeOnly deps.junit.jupiterEngine
