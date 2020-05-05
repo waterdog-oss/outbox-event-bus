@@ -46,6 +46,8 @@ import java.util.Properties
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -111,6 +113,47 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
                         .reduce { acc, value -> acc + value } == (numProducers * numConsumers * numMessagesPerProducer)
             }
         }
+
+        @Test
+        fun `A consumer can unsubscribe and subscribe again`() {
+            // Given a consumer
+            val topic = UUID.randomUUID().toString()
+            val consumerId = UUID.randomUUID().toString()
+            val consumer1 = createConsumer(StreamMode.AutoCommit)
+            val countConsumer1 = AtomicInteger(0)
+
+            thread {
+                consumer1.stream(topic, consumerId)
+                    .subscribe { countConsumer1.incrementAndGet() }
+            }
+
+            // When an event is sent
+            sendEvent(topic)
+
+            // it is correctly received
+            await atMost Duration.ofSeconds(1) untilAsserted {
+                countConsumer1.get() `should equal` 1
+            }
+
+            // When the consumer 1 unsubscribes
+            consumer1.unsubscribe(topic, consumerId)
+
+            // A new consumer should work correctly as well
+            val consumer2 = createConsumer(StreamMode.AutoCommit)
+            val countConsumer2 = AtomicInteger(0)
+            thread {
+                consumer2.stream(topic, consumerId)
+                    .subscribe { countConsumer2.incrementAndGet() }
+            }
+
+            sendEvent(topic)
+            await atMost Duration.ofSeconds(1) untilAsserted {
+                countConsumer2.get() `should equal` 1
+            }
+
+            // Consumer 1 should not register any more events
+            countConsumer1.get() `should equal` 1
+        }
     }
 
     @Nested
@@ -138,19 +181,20 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `Sent events are cleaned up according to the policy defined in the configuration`() {
-            // Given: A producer sending a bunch of messages
+        fun `Successful events are cleaned up according to the policy defined in the configuration`() {
+            // Given: A producer that sends an event
             val cleanupThresholdSeconds = 5
             val producer = createProducer(cleanupThresholdSeconds)
+
             val testTopic = UUID.randomUUID().toString()
-            producer.send(EventInput(testTopic, "cleanup_test", "application/json", "[]".toByteArray()))
+            producer.send(TestEvent.of(testTopic))
 
             // When: Enough time has elapsed since the last message was sent
             val dbc: DatabaseConnection by inject()
             val currentCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
             currentCount `should equal` 1
 
-            // Then: The message is deleted after the time has elapsed
+            // Then: The event is deleted after the time has elapsed
             await atMost Duration.ofSeconds(cleanupThresholdSeconds + 1L) untilAsserted {
                 val updatedCount = dbc.query { EventTable.select { EventTable.topic eq testTopic }.count() }
                 updatedCount `should be less than` currentCount
@@ -312,5 +356,18 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             props["producer.event.cleanup.intervalInSeconds"] = "1"
             return ebf.getProducer(props)
         }
+    }
+
+    private fun sendEvent(topic: String) {
+        runBlocking {
+            val event = TestEvent.of(topic)
+            createProducer(2).send(event)
+        }
+    }
+}
+
+private object TestEvent {
+    fun of(topic: String): EventInput {
+        return EventInput(topic, "test", "application/json", "[]".toByteArray())
     }
 }
