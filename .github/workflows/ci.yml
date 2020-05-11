@@ -23,7 +23,7 @@ jobs:
   runner-job:
     runs-on: ubuntu-latest
 
-    container: open-jdk:8-alpine
+    container: openjdk:8-alpine
 
     services:
       docker:
