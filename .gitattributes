@@ -7,6 +7,7 @@
 *.zip binary
 *.gz binary
 *.tar binary
+*.jar binary
 
 # Just force any windows batch file to have the CRLF line ends
 *.bat text eol=crlf
