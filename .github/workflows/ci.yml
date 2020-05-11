@@ -31,13 +31,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@master
-    - uses: gradle/wrapper-validation-action@v1
-
-    - name: Check running directory
-      run: pwd -P
-
-    - name: Check gradle wrapper jar
-      run: cd gradle/wrapper && ls
 
     - name: Run tests
       run: ./gradlew test
