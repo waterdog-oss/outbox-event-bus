@@ -3,7 +3,7 @@ package mobi.waterdog.eventbus.model
 import java.time.Instant
 import java.util.UUID
 
-internal data class Event(
+data class Event(
     val id: Long,
     val delivered: Boolean,
     val topic: String,

@@ -4,15 +4,16 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import mobi.waterdog.eventbus.EventBackend
-import mobi.waterdog.eventbus.EventBusFactory
-import mobi.waterdog.eventbus.EventProducer
-import mobi.waterdog.eventbus.eventBusKoinModule
 import mobi.waterdog.eventbus.model.EventInput
-import org.koin.dsl.module.module
-import org.koin.standalone.KoinComponent
-import org.koin.standalone.StandAloneContext
-import org.koin.standalone.inject
+import mobi.waterdog.eventbus.persistence.LocalEventCache
+import mobi.waterdog.eventbus.sql.DatabaseConnection
+import mobi.waterdog.eventbuse.example.sql.EventTable
+import mobi.waterdog.eventbus.example.sql.LocalEventStoreSql
+import org.jetbrains.exposed.example.sql.SchemaUtils
+import org.koin.core.KoinComponent
+import org.koin.core.context.startKoin
+import org.koin.core.inject
+import org.koin.dsl.module
 import java.time.Instant
 import java.util.Properties
 import javax.sql.DataSource
@@ -29,9 +30,10 @@ class ExampleProducer(kafkaServer: String) : KoinComponent {
         props["key.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
         props["value.serializer"] = "org.apache.kafka.common.serialization.StringSerializer"
 
-        val ebp: EventBusFactory by inject()
+        val localEventCache: LocalEventCache by inject()
+        val ebp = EventBusProvider()
         ebp.setup(EventBackend.Kafka)
-        producer = ebp.getProducer(props)
+        producer = ebp.getProducer(props, localEventCache)
     }
 
     fun startProducerLoop() {
@@ -43,7 +45,7 @@ class ExampleProducer(kafkaServer: String) : KoinComponent {
 }
 
 fun main() {
-    StandAloneContext.startKoin(
+    startKoin {
         listOf(
             module {
                 single<DataSource> {
@@ -57,9 +59,23 @@ fun main() {
                     })
                 }
             },
-            eventBusKoinModule()
+            module {
+                single {
+                    DatabaseConnection(get())
+                }
+            },
+            module {
+                single<LocalEventCache> {
+                    val dbc: DatabaseConnection = get()
+                    val localEventStoreSql = LocalEventStoreSql(dbc)
+                    dbc.query {
+                        SchemaUtils.create(EventTable)
+                    }
+                    localEventStoreSql
+                }
+            }
         )
-    )
+    }
 
     val server = "kafka-service:9092"
     println("Starting producer: $server")
