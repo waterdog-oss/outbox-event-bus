@@ -9,9 +9,16 @@ on:
     - master
 
 jobs:
-  build:
+  container-job:
     runs-on: ubuntu-latest
-    
+
+    services:
+      docker:
+        image: docker
+
+  vm-job:
+    runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@master
     - uses: actions/setup-java@v1
