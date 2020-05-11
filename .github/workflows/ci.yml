@@ -35,8 +35,7 @@ jobs:
       with:
         java-version: 1.8
 
-    - name: Set permissions
-      run: chmod +x gradlew
-
-    - name: Run tests
-      run: ./gradlew test
+    - name: Build
+      uses: eskatos/gradle-command-action@v1
+      with:
+        arguments: build
