@@ -9,7 +9,7 @@ on:
     - master
 
 jobs:
-  build:
+  container-job:
     runs-on: ubuntu-latest
 
     services:
@@ -17,11 +17,20 @@ jobs:
         image: docker
 
     steps:
+    - name: Check docker
+      run: docker ps
+
+  runner-job:
+    runs-on: ubuntu-latest
+
+    container: open-jdk:8-alpine
+
+    services:
+      docker:
+        image: docker
+
+    steps:
     - uses: actions/checkout@master
-    - uses: actions/setup-java@v1
-      with:
-        java-version: '8.x'
-        architecture: x64
 
     - name: Check running directory
       run: pwd -P
