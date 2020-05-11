@@ -9,15 +9,12 @@ on:
     - master
 
 jobs:
-  container-job:
+  build:
     runs-on: ubuntu-latest
 
     services:
       docker:
         image: docker
-
-  vm-job:
-    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@master
