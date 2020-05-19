@@ -1,8 +1,8 @@
 # !/bin/bash
 
 # Copy dependencies
-cp -f ../build/libs/ktor-event-bus-0.10.jar ./consumer/libs/ktor-event-bus-0.10.jar
-cp -f ../build/libs/ktor-event-bus-0.10.jar ./producer/libs/ktor-event-bus-0.10.jar
+cp -f ../build/libs/outbox-event-bus-0.11.jar ./consumer/libs/outbox-event-bus-0.11.jar
+cp -f ../build/libs/outbox-event-bus-0.11.jar ./producer/libs/outbox-event-bus-0.11.jar
 
 # Build images
 cd consumer && docker build -t consumer:dev .

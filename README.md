@@ -1,4 +1,4 @@
-![CI](https://github.com/waterdog-oss/ktor-event-bus/workflows/CI/badge.svg)
+![CI](https://github.com/waterdog-oss/outbox-event-bus/workflows/CI/badge.svg)
 
 # Outbox event bus
 Kotlin based event bus that implements an outbox pattern approach to publishing domain level events in the context of database transactions. 
@@ -77,7 +77,7 @@ transactional properties that are implied.
 
 ## Usage in your project
 
-* Add the dependency: com.github.waterdog-oss:ktor-event-bus:<release-version>
+* Add the dependency: com.github.waterdog-oss: outbox-event-bus:<release-version>
 
 ### Setting up a producer:
 1. Setup the dependencies (database and local event store)
