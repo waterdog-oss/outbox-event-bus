@@ -1,4 +1,5 @@
 ![CI](https://github.com/waterdog-oss/outbox-event-bus/workflows/CI/badge.svg)
+![Release](https://jitpack.io/v/waterdog-oss/outbox-event-bus.svg)
 
 # Outbox event bus
 Kotlin based event bus that implements an outbox pattern approach to publishing domain level events in the context of database transactions. 
