@@ -1,3 +1,5 @@
+![CI](https://github.com/waterdog-oss/ktor-event-bus/workflows/CI/badge.svg)
+
 # Outbox event bus
 Kotlin based event bus that implements an outbox pattern approach to publishing domain level events in the context of database transactions. 
 This allows to atomically update the database and publish events. Check [this](https://microservices.io/patterns/data/transactional-outbox.html) 
