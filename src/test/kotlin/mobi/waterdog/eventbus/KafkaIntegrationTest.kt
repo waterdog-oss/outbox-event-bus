@@ -1,6 +1,7 @@
 package mobi.waterdog.eventbus
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mobi.waterdog.eventbus.containers.KafkaTestContainer
@@ -9,6 +10,7 @@ import mobi.waterdog.eventbus.example.app.Order
 import mobi.waterdog.eventbus.example.app.OrderService
 import mobi.waterdog.eventbus.example.app.OrderTable
 import mobi.waterdog.eventbus.model.EventInput
+import mobi.waterdog.eventbus.model.EventOutput
 import mobi.waterdog.eventbus.model.StreamMode
 import mobi.waterdog.eventbus.persistence.EventRelay
 import mobi.waterdog.eventbus.persistence.LocalEventStore
@@ -355,6 +357,59 @@ class KafkaIntegrationTest : BaseIntegrationTest() {
             props[ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG] = StringSerializer::class.java.name
             props["producer.event.cleanup.intervalInSeconds"] = "1"
             return ebf.getProducer(props)
+        }
+    }
+
+    @Nested
+    @DisplayName("subscribe -> unsubscribe -> subscribe")
+    inner class SubscriptionTests {
+
+        @Test
+        fun `A consumer can be subscribed again after an unsubscribe call`() {
+            // Given: a subscriber
+            val topic = UUID.randomUUID().toString()
+            val group = UUID.randomUUID().toString()
+            val consumer = createConsumer(StreamMode.AutoCommit)
+
+            var streamA: Disposable? = null
+            val numStreamA = AtomicInteger(0)
+            thread {
+                streamA = consumer.stream(topic, group).doOnError { it.printStackTrace() }
+                    .onErrorReturnItem(EventOutput.buildError())
+                    .subscribe {
+                        numStreamA.incrementAndGet()
+                    }
+            }
+
+            // and: it works
+            val producer = createProducer(10)
+            producer.send(EventInput(topic, "subscribe_test", "application/json", "[]".toByteArray()))
+
+            await atMost Duration.ofSeconds(1) untilAsserted {
+                numStreamA.get() `should equal` 1
+            }
+
+            // when: we unsubscribe
+            streamA?.dispose()
+            consumer.unsubscribe(topic, group)
+
+            // then: subscribing back again should not be a problem
+            var streamB: Disposable? = null
+            val numStreamB = AtomicInteger(0)
+            thread {
+                streamB = consumer.stream(topic, group).doOnError { it.printStackTrace() }
+                    .onErrorReturnItem(EventOutput.buildError())
+                    .subscribe {
+                        numStreamB.incrementAndGet()
+                    }
+            }
+            producer.send(EventInput(topic, "subscribe_test", "application/json", "[]".toByteArray()))
+
+            await atMost Duration.ofSeconds(1) untilAsserted {
+                numStreamB.get() `should equal` 1
+            }
+
+            streamB?.dispose()
         }
     }
 
