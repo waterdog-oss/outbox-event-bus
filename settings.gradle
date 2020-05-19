@@ -1,1 +1,1 @@
-rootProject.name = "ktor-event-bus"
+rootProject.name = "outbox-event-bus"
