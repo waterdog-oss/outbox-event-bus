@@ -1,5 +1,6 @@
 ![CI](https://github.com/waterdog-oss/outbox-event-bus/workflows/CI/badge.svg)
 ![Release](https://jitpack.io/v/waterdog-oss/outbox-event-bus.svg)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=waterdog-oss_outbox-event-bus&metric=alert_status)](https://sonarcloud.io/dashboard?id=waterdog-oss_outbox-event-bus)
 
 # Outbox event bus
 Kotlin based event bus that implements an outbox pattern approach to publishing domain level events in the context of database transactions. 
